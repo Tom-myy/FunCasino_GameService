@@ -1,0 +1,5 @@
+game:
+  ws-base-url: ws://localhost:8081/ws
+
+server:
+  port: 8081

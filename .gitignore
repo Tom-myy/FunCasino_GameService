@@ -1,0 +1,60 @@
+# Исключаем скомпилированные и временные файлы Maven
+target/
+build/
+
+# Исключаем временные файлы и кеши
+*.log
+*.out
+logs/
+*.swp
+*.tmp
+.DS_Store
+Thumbs.db
+.cache/
+
+# Исключаем резервные копии
+*.bak
+
+# Исключаем скомпилированные Java-классы
+*.class
+*.javadoc
+
+# Исключаем скомпилированные JAR/WAR/EAR
+*.jar
+*.war
+*.ear
+
+!.mvn/wrapper/maven-wrapper.jar
+
+# Spring Tool Suite (STS)
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# VS Code
+.vscode/
+
+# Node.js (если вдруг используешь фронтенд)
+node_modules/
+
+# Системные и служебные файлы Windows
+desktop.ini
+ehthumbs.db
+Thumbs.db

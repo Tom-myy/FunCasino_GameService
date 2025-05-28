@@ -1,0 +1,3 @@
+game:
+#  ws-base-url: wss://game-service.onrender.com/ws/play
+  ws-base-url: # set link after deployment (from Render)...

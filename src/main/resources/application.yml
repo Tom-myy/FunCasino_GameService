@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: game-service
+  profiles:
+    active: dev  #default profile
+
+#  cache:
+#    type=none:#  profiles:
+
+game:
+  timer:
+    betting-time: 15
+    decision-time: 25
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
