@@ -50,7 +50,7 @@ public class WsGameHandler {
 
         GameDecisionRequestDto dto = objectMapper.convertValue(wsMessage.getMessage(), GameDecisionRequestDto.class);
 
-        validationService.validate(dto);
+        validationService.validateRequestDto(dto);
 
         GameDecision gameDecision = dto.getGameDecision();
         gameService.setDecisionField(gameDecision);

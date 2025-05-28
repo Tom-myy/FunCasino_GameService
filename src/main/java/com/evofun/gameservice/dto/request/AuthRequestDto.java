@@ -8,5 +8,5 @@ import lombok.Setter;
 @Setter
 public class AuthRequestDto {
     @NotBlank
-    String token;
+    String gameToken;
 }

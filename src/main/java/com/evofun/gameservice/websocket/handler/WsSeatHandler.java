@@ -43,7 +43,7 @@ public class WsSeatHandler {
     public void handleTakeSeat(WsMessage<?> wsMessage, WsClient wsClient) {
         TakeSeatRequestDto dto = objectMapper.convertValue(wsMessage.getMessage(), TakeSeatRequestDto.class);
 
-        validationService.validate(dto);
+        validationService.validateRequestDto(dto);
 
         if (tableService.isSeatExists(dto.getSeatNumber()))
             throw new GameValidationException("This seat is already busy at the table.", "Player attempted to occupy a seat that was already occupied.");
@@ -63,7 +63,7 @@ public class WsSeatHandler {
     public void handleLeaveSeat(WsMessage<?> wsMessage, WsClient wsClient) {
         leaveSeatRequestDto dto = objectMapper.convertValue(wsMessage.getMessage(), leaveSeatRequestDto.class);
 
-        validationService.validate(dto);
+        validationService.validateRequestDto(dto);
 
         if (!tableService.isSeatExists(dto.getSeatNumber())) {
             throw new GameValidationException("There's no such seat at the table to leave.", "Player tried to leave seat that is not taken yet.");
@@ -89,7 +89,7 @@ public class WsSeatHandler {
     public void handleUpdateSeatBet(WsMessage<?> wsMessage, WsClient wsClient) {
         UpdateBetRequestDto dto = objectMapper.convertValue(wsMessage.getMessage(), UpdateBetRequestDto.class);
 
-        validationService.validate(dto);
+        validationService.validateRequestDto(dto);
 
         if (!tableService.isSeatExists(dto.getSeatNumber()))
             throw new GameValidationException("There's no such seat at the table.", "Player tried to update bet for seat that is not taken yet.");

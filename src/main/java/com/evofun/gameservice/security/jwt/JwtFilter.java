@@ -1,3 +1,4 @@
+/* //TODO change this filter (auth filter) to SystemJwtFiler
 package com.evofun.gameservice.security.jwt;
 
 import com.evofun.gameservice.common.error.ErrorCode;
@@ -37,22 +38,26 @@ public class JwtFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         String path = request.getRequestURI();
 
+*/
 /*        // 👇 если это WebSocket-запрос — пропускаем без JWT-проверки
         if (path.startsWith("/ws") || path.startsWith("/websocket")) {
             filterChain.doFilter(request, response);
             return;
-        }*/
+        }*//*
+
         if (matcher.match("/ws/**", path) || matcher.match("/websocket", path)) {
             filterChain.doFilter(request, response);
             return;
         }
 
 
+*/
 /*        // ❗ Пропускаем открытые пути (например, регистрация и логин)
         if (path.startsWith("/api/game-service/gameAccess") || path.startsWith("/actuator")) {
             filterChain.doFilter(request, response);
             return;
-        }*/
+        }*//*
+
         if (matcher.match("/api/game-service/**", path) || matcher.match("/actuator/**", path)) {
             filterChain.doFilter(request, response);
             return;
@@ -76,16 +81,16 @@ public class JwtFilter extends OncePerRequestFilter {
             JwtPayload payload;
 
             try {
-                payload = jwtUtil.extractPayload(token);
+                payload = jwtUtil.extractPayloadFromGameToken(token);
             } catch (ExpiredJwtException expired) {
-                logger.warn("Expired JWT token: {}", expired);
+                logger.warn("Expired JWT gameToken: {}", expired);
                 SecurityContextHolder.clearContext();
-                handleErrorResponse(response, "Expired JWT token.");
+                handleErrorResponse(response, "Expired JWT gameToken.");
                 return;
             } catch (JwtException e) {
-                logger.warn("Invalid JWT token: {}", e);
+                logger.warn("Invalid JWT gameToken: {}", e);
                 SecurityContextHolder.clearContext();
-                handleErrorResponse(response, "Invalid JWT token.");
+                handleErrorResponse(response, "Invalid JWT gameToken.");
                 return;
             }
 
@@ -118,3 +123,4 @@ public class JwtFilter extends OncePerRequestFilter {
         response.flushBuffer();
     }
 }
+*/

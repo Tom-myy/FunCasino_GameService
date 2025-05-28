@@ -17,7 +17,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.ArrayList;
@@ -28,12 +27,10 @@ import java.util.UUID;
 @Component
 public class UserServiceRemote {
     private final ObjectMapper objectMapper;
-    private final RestTemplate restTemplate;
     private final String userServiceUrl = "http://localhost:8080/api/internal";
 
-    public UserServiceRemote(ObjectMapper objectMapper, RestTemplate restTemplate) {
+    public UserServiceRemote(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        this.restTemplate = restTemplate;
     }
 
     public UserInternalDto findUserById(UUID userId) {//TODO change to WebClient!!

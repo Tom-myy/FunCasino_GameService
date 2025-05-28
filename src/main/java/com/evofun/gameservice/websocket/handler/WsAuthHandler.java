@@ -9,7 +9,7 @@ import com.evofun.gameservice.forGame.UserServiceRemote;
 import com.evofun.gameservice.game.PlayerModel;
 import com.evofun.gameservice.game.PlayerRegistry;
 import com.evofun.gameservice.game.service.TableService;
-import com.evofun.gameservice.security.jwt.JwtPayload;
+import com.evofun.gameservice.security.jwt.JwtUser;
 import com.evofun.gameservice.security.jwt.JwtUtil;
 import com.evofun.gameservice.mapper.PlayerInternalMapper;
 import com.evofun.gameservice.mapper.UserInternalMapper;
@@ -26,7 +26,6 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -39,12 +38,11 @@ public class WsAuthHandler {
     private final WsPlayerConnectionService authService;
     private final PlayerRegistry playerRegistry;
     private final WsClientRegistry clientRegistry;
-    private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final ValidationService validationService;
 
 
-    public WsAuthHandler(UserServiceRemote userServiceRemote, ObjectMapper objectMapper, WsMessageSenderImpl messageSenderImpl, TableService tableService, WsPlayerConnectionService wsPlayerConnectionService, PlayerRegistry playerRegistry, WsClientRegistry clientRegistry, PasswordEncoder passwordEncoder, JwtUtil jwtUtil, ValidationService validationService) {
+    public WsAuthHandler(UserServiceRemote userServiceRemote, ObjectMapper objectMapper, WsMessageSenderImpl messageSenderImpl, TableService tableService, WsPlayerConnectionService wsPlayerConnectionService, PlayerRegistry playerRegistry, WsClientRegistry clientRegistry, JwtUtil jwtUtil, ValidationService validationService) {
         this.userServiceRemote = userServiceRemote;
         this.objectMapper = objectMapper;
         this.messageSenderImpl = messageSenderImpl;
@@ -52,7 +50,6 @@ public class WsAuthHandler {
         this.authService = wsPlayerConnectionService;
         this.playerRegistry = playerRegistry;
         this.clientRegistry = clientRegistry;
-        this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.validationService = validationService;
     }
@@ -60,18 +57,11 @@ public class WsAuthHandler {
     public void handleAuthorization(WsMessage<?> wsMessage, WsClient wsClient) {
         AuthRequestDto request = objectMapper.convertValue(wsMessage.getMessage(), AuthRequestDto.class);
 
-        validationService.validate(request);
+        validationService.validateRequestDto(request);
 
-        JwtPayload payload;
-        try {
-            payload = jwtUtil.extractPayload(request.getToken());
-        } catch (ExpiredJwtException expired) {
-            throw new TokenExpiredException("Expired JWT token");
-        } catch (JwtException e) {
-            throw new InvalidTokenException("JWT token invalid");
-        }
+        JwtUser jwtUser = validateGameToken(request.getGameToken());
 
-        UserInternalDto userInternalDto = userServiceRemote.findUserById(payload.userId());//TODO
+        UserInternalDto userInternalDto = userServiceRemote.findUserById(jwtUser.getUserId());//TODO
 
         UserModel userModel = UserInternalMapper.toModel(userInternalDto);
 
@@ -87,5 +77,15 @@ public class WsAuthHandler {
 
         TableDto dto = tableService.getTableDto();
         messageSenderImpl.broadcast(new WsMessage<>(dto, WsMessageType.TABLE_STATUS));
+    }
+
+    private JwtUser validateGameToken(String gameToken) {
+        try {
+            return jwtUtil.extractPayloadFromGameToken(gameToken);
+        } catch (ExpiredJwtException expired) {
+            throw new TokenExpiredException("Expired JWT gameToken");
+        } catch (JwtException e) {
+            throw new InvalidTokenException("JWT gameToken invalid");
+        }
     }
 }
