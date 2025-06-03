@@ -10,6 +10,7 @@ import com.evofun.gameservice.mapper.UserPublicMapper;
 import com.evofun.gameservice.model.UserModel;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -27,21 +28,25 @@ import java.util.UUID;
 @Component
 public class UserServiceRemote {
     private final ObjectMapper objectMapper;
-    private final String userServiceUrl = "http://localhost:8080/api/internal";
+
+    @Value("${user-service.base-url}")
+    private String baseUserServiceUrl;
+
+//    private final String userServiceUrl = "http://localhost:8080/api/internal";
 
     public UserServiceRemote(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
     public UserInternalDto findUserById(UUID userId) {//TODO change to WebClient!!
-        String url = userServiceUrl + "/userById/" + userId;//TODO endpoint
+//        String url = userServiceUrl + "/userById/" + userId;//TODO endpoint удалить
 
         try {
-            WebClient client = WebClient.create(userServiceUrl);
+            WebClient client = WebClient.create(baseUserServiceUrl);
 
             return client.get()
 //                    .uri(url)
-                    .uri("/userById/" + userId)
+                    .uri("/api/internal/userById/" + userId)
                     .retrieve()
                     .bodyToMono(UserInternalDto.class)
                     .block();
@@ -130,10 +135,10 @@ public class UserServiceRemote {
 
 
         try {
-            WebClient client = WebClient.create(userServiceUrl);
+            WebClient client = WebClient.create(baseUserServiceUrl);
 
             List<UserInternalDto> listUserInternalDtoUpdated = client.patch()
-                    .uri("/updateUsersAfterGame")
+                    .uri("/api/internal/updateUsersAfterGame")
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(listUserInternalDtoToUpdate)
                     .retrieve()
