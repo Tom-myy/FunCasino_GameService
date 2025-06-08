@@ -8,17 +8,17 @@ import com.evofun.gameservice.game.PlayerModel;
 import com.evofun.gameservice.mapper.UserInternalMapper;
 import com.evofun.gameservice.mapper.UserPublicMapper;
 import com.evofun.gameservice.model.UserModel;
+import com.evofun.gameservice.websocket.exception.RemoteServiceException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,13 +45,26 @@ public class UserServiceRemote {
             WebClient client = WebClient.create(baseUserServiceUrl);
 
             return client.get()
-//                    .uri(url)
                     .uri("/api/internal/userById/" + userId)
                     .retrieve()
+                    .onStatus(HttpStatus.NOT_FOUND::equals, response ->
+                            Mono.error(new UserNotFoundException("User not found: " + userId))
+                    )
                     .bodyToMono(UserInternalDto.class)
                     .block();
 
-        } catch (HttpStatusCodeException e) {
+        } catch (UserNotFoundException unfe) {
+          throw unfe;
+        } catch (WebClientResponseException e) {
+///            log.error("User-service error {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new RemoteServiceException("User-service error: " + e.getStatusCode(), e);
+        } catch (Exception e) {
+///            log.error("Unexpected error in userServiceRemote", e);
+            throw new RuntimeException("Unexpected internal error", e);
+        }
+
+
+        /*catch (HttpStatusCodeException e) {
             String errorJson = e.getResponseBodyAsString();
             ErrorDto error = null;
             try {
@@ -62,7 +75,7 @@ public class UserServiceRemote {
             throw new RuntimeException("Error: " + error.getMessage());
         } catch (Exception e) {
             throw new RuntimeException("Unknown error: ", e);
-        }
+        }*/
 
     }
 /*    public BigDecimal applyBalanceChange(UUID userId, BigDecimal delta) {

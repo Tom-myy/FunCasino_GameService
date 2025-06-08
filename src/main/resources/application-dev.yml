@@ -1,5 +1,8 @@
-game:
-  ws-base-url: ws://localhost:8081/ws
-
 server:
   port: 8081
+
+game:
+  ws-base-url: ${GAME_WS_BASE_URL}
+
+user-service:
+  base-url: ${USER_SERVICE_BASE_URL}

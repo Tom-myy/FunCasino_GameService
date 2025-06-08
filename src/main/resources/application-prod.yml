@@ -1,2 +1,5 @@
 game:
   ws-base-url: ${GAME_WS_BASE_URL}
+
+user-service:
+  base-url: ${USER_SERVICE_BASE_URL}

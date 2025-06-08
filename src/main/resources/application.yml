@@ -22,5 +22,3 @@ jwt:
   game-secret: ${JWT_GAME_SECRET}
   system-secret: ${JWT_SYSTEM_SECRET}
 
-user-service:
-  base-url: ${USER_SERVICE_BASE_URL}

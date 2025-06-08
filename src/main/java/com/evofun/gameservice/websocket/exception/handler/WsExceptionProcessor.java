@@ -10,6 +10,7 @@ import com.evofun.gameservice.exception.UserNotFoundException;
 import com.evofun.gameservice.websocket.connection.WsClient;
 import com.evofun.gameservice.websocket.exception.GameSystemException;
 import com.evofun.gameservice.websocket.exception.GameValidationException;
+import com.evofun.gameservice.websocket.exception.RemoteServiceException;
 import com.evofun.gameservice.websocket.message.WsMessage;
 import com.evofun.gameservice.websocket.message.WsMessageSenderImpl;
 import com.evofun.gameservice.websocket.message.WsMessageType;
@@ -68,10 +69,18 @@ public class WsExceptionProcessor {
             ErrorDto errorDto = new ErrorDto(ErrorCode.SYSTEM_ERROR, code, "Some system error on the server. Try again later or contact support.", null);
 
             sender.sendToClient(wsClient, new WsMessage<>(errorDto, WsMessageType.ERROR));
-            logger.error("ERROR-CODE: [{}] - {}", code, unfe.getMessage());
+            logger.error("ERROR-CODE: [{}] - {}", code, unfe.getMessage(), unfe);
 
-        }
-        else if (e instanceof JsonProcessingException jpe) {
+        } else if (e instanceof RemoteServiceException rse) {
+
+            String code = ExceptionUtils.generateErrorId("SYS");
+
+            ErrorDto errorDto = new ErrorDto(ErrorCode.SYSTEM_ERROR, code, "Some system error on the server. Try again later or contact support.", null);
+
+            sender.sendToClient(wsClient, new WsMessage<>(errorDto, WsMessageType.ERROR));
+            logger.error("ERROR-CODE: [{}] - {}", code, rse.getMessage(), rse);
+
+        } else if (e instanceof JsonProcessingException jpe) {
 
             String code = ExceptionUtils.generateErrorId("JSON");
 
