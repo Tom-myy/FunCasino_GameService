@@ -1,6 +1,7 @@
 package com.evofun.gameservice.forGame;
 
 import com.evofun.gameservice.common.error.ErrorDto;
+import com.evofun.gameservice.db.PlayerSnapshot;
 import com.evofun.gameservice.dto.UserInternalDto;
 import com.evofun.gameservice.dto.UserPublicDto;
 import com.evofun.gameservice.exception.UserNotFoundException;
@@ -139,10 +140,10 @@ public class UserServiceRemote {
                     .map(UserPublicMapper::toPublicDto)
                     .toList();
         }*/
-    public List<UserPublicDto> updateUsersAfterGame(List<PlayerModel> models) {//TODO change to WebClient!!
+    public List<UserPublicDto> updateUsersAfterGame(List<PlayerSnapshot> models) {//TODO change to WebClient!!
 
         List<UserInternalDto> listUserInternalDtoToUpdate = models.stream()
-                .map(PlayerModel::getUserModel)         // получаем UserModel
+                .map(PlayerSnapshot::getUserModel)         // получаем UserModel
                 .map(UserInternalMapper::toInternalDto)         // конвертируем в DTO
                 .toList();                              // собираем в список
 

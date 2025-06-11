@@ -1,5 +1,8 @@
 package com.evofun.gameservice.model;
 
+import com.evofun.gameservice.db.GameResultSnapshot;
+import com.evofun.gameservice.db.PlayerSnapshot;
+import com.evofun.gameservice.db.SeatSnapshot;
 import com.evofun.gameservice.game.*;
 import com.evofun.gameservice.mapper.DealerMapper;
 import com.evofun.gameservice.mapper.PlayerPublicMapper;
@@ -95,7 +98,7 @@ public class Game {
     public Game(TableModel tableModel, WsMessageSenderImpl messageSenderImpl, TimerService timerService, PlayerRegistry playerRegistry, DecisionTimeObserver decisionTimeObserver) {
 //        this.listener = listener;
         this.tableModel = tableModel;
-//        this.players = players;
+//        this.playersInGameSession = playersInGameSession;
 //        this.playersBroadcastCallback = callback;
 //        this.timer = timer;
 //        this.messageSender = messageSender;
@@ -106,7 +109,8 @@ public class Game {
         players = playerRegistry.getPlayerModels();
     }
 
-    public List<PlayerModel> startGame() {
+//    public List<PlayerModel> startGame() {
+    public GameResultSnapshot startGame() {
         if (tableModel.isGame()) {
             return null;
         } else {
@@ -151,7 +155,7 @@ public class Game {
         for (SeatModel seatModel : gameSeatModels) { //TODO mb change PROGRESSING to null
             seatModel.resetGameResultStatus();
         }
-        messageSenderImpl.broadcast(new WsMessage<>(GameResultStatus.PROGRESSING, WsMessageType.E_GAME_RESULT_STATUS));
+        messageSenderImpl.broadcast(new WsMessage<>(RoundResult.PROGRESSING, WsMessageType.E_GAME_RESULT_STATUS));
 
 //        dealer.resetGameResultStatus(); //TODO mb change PROGRESSING to null
 //        listener.broadcast(new MyPackage<>(DealerMapper.toDto(dealer), EMessageType.DEALER));//TODO mb not to send the dealer
@@ -173,9 +177,9 @@ public class Game {
                 if (seatModel.getMainScore() == 21) {
                     System.out.println(cardModel.getInitial() + " of " + cardModel.getSuit() + " was " +
                             "dealt to player on seat #" + seatModel.getSeatNumber() + ", score - BLACKJACK (" + seatModel.getMainScore() + ")");
-                    //TODO display it in the players' interface
+                    //TODO display it in the playersInGameSession' interface
 
-                    seatModel.setGameResultStatus(GameResultStatus.BLACKJACK);
+                    seatModel.setRoundResult(RoundResult.BLACKJACK);
                     SeatDto seatDto = SeatMapper.toDto(seatModel);
                     messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
 
@@ -290,7 +294,7 @@ public class Game {
                                 } else if (nextGameDecision.equals(GameDecision.CASH_OUT)) {
                                     System.out.println(seatModel.getPlayerUUID() + " CASHOUT");
                                     isStand = true;
-                                    seatModel.setGameResultStatus(GameResultStatus.CASHED_OUT);
+                                    seatModel.setRoundResult(RoundResult.CASH_OUT);
                                     seatDto = SeatMapper.toDto(seatModel);
                                     messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
 
@@ -393,7 +397,7 @@ public class Game {
 
                     //i need to take the player with this seat and change his old seat to new one
                     Player splitPlayer = null;
-                    for (Player p : players) {
+                    for (Player p : playersInGameSession) {
                         if (p.getUserUUID().equals(seat.getUserUUID())) {
                             splitPlayer = p;
                         }
@@ -432,7 +436,7 @@ public class Game {
                 }*/ else if (firstGameDecision.equals(GameDecision.CASH_OUT)) {
                     seatModel.setLastGameDecision(firstGameDecision);
                     System.out.println(seatModel.getPlayerUUID() + " cashed-out");
-                    seatModel.setGameResultStatus(GameResultStatus.CASHED_OUT);
+                    seatModel.setRoundResult(RoundResult.CASH_OUT);
                     SeatDto seatDto = SeatMapper.toDto(seatModel);
                     messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
 
@@ -443,7 +447,7 @@ public class Game {
             if (seatModel.getMainScore() == 21 && seatModel.getMainHand().size() == 2) {
                 System.out.println(seatModel.getPlayerUUID() + " has BLACKJACK (" + seatModel.getMainScore() + ") - amazing");
 
-                seatModel.setGameResultStatus(GameResultStatus.BLACKJACK);//тк если у диллера тоже BJ, то у игрока PUSH
+                seatModel.setRoundResult(RoundResult.BLACKJACK);//тк если у диллера тоже BJ, то у игрока PUSH
                 SeatDto seatDto = SeatMapper.toDto(seatModel);
                 messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
 
@@ -457,7 +461,7 @@ public class Game {
             if (seatModel.getMainScore() > 21) {
                 System.out.println(seatModel.getPlayerUUID() + " has TOO MANY (" + seatModel.getMainScore() + ") - sadly");
 
-                seatModel.setGameResultStatus(GameResultStatus.TOO_MANY);//как по мне - не особо правильно это тут распологать
+                seatModel.setRoundResult(RoundResult.LOSE);//как по мне - не особо правильно это тут распологать
 
             }
 
@@ -497,7 +501,7 @@ public class Game {
             }
         }
 
-        {//this block of code is for dealer's turn (after players)...
+        {//this block of code is for dealer's turn (after playersInGameSession)...
             System.out.println("Game results:");
             changeGameStatusForInterface(GamePhaseUI.RESULT_ANNOUNCEMENT);
 
@@ -505,17 +509,17 @@ public class Game {
             if (dealerModel.getScore() == 21 && dealerModel.getHand().size() == 2) {
                 System.out.println("Unfortunately, " + dealerModel.getNickName() + " has BLACKJACK (" + dealerModel.getScore() + ")");
 
-                dealerModel.setGameResultStatus(GameResultStatus.BLACKJACK);
+                dealerModel.setRoundResult(RoundResult.BLACKJACK);
                 messageSenderImpl.broadcast(new WsMessage<>(DealerMapper.toDto(dealerModel), WsMessageType.DEALER));
 
 
                 gameSeatModels.stream()//TODO develop insurance if Dealer has ace
-                        .filter(p -> p.getGameResultStatus() == GameResultStatus.BLACKJACK)
-                        .forEach(p -> p.setGameResultStatus(GameResultStatus.PUSHED));
+                        .filter(p -> p.getRoundResult() == RoundResult.BLACKJACK)
+                        .forEach(p -> p.setRoundResult(RoundResult.PUSH));
 
                 gameSeatModels.stream()
-                        .filter(p -> p.getGameResultStatus() == GameResultStatus.PROGRESSING)
-                        .forEach(p -> p.setGameResultStatus(GameResultStatus.LOST));
+                        .filter(p -> p.getRoundResult() == RoundResult.PROGRESSING)
+                        .forEach(p -> p.setRoundResult(RoundResult.LOSE));
             }
 
             //check dealer's score - less or equals 20
@@ -524,20 +528,20 @@ public class Game {
 
                 gameSeatModels.stream()
                         .filter(p -> p.getMainScore() < dealerModel.getScore() &&
-                                p.getGameResultStatus() == GameResultStatus.PROGRESSING)//отметка, что он к примеру не кєшанул
+                                p.getRoundResult() == RoundResult.PROGRESSING)//отметка, что он к примеру не кєшанул
                         //или тп, а ещё в игре
-                        .forEach(p -> p.setGameResultStatus(GameResultStatus.LOST));
+                        .forEach(p -> p.setRoundResult(RoundResult.LOSE));
 
                 gameSeatModels.stream()
                         .filter(p -> p.getMainScore() == dealerModel.getScore() &&
-                                p.getGameResultStatus() == GameResultStatus.PROGRESSING)//отметка, что он к примеру не кєшанул
+                                p.getRoundResult() == RoundResult.PROGRESSING)//отметка, что он к примеру не кєшанул
                         //или тп, а ещё в игре
-                        .forEach(p -> p.setGameResultStatus(GameResultStatus.PUSHED));
+                        .forEach(p -> p.setRoundResult(RoundResult.PUSH));
 
                 gameSeatModels.stream()
                         .filter(p -> p.getMainScore() > dealerModel.getScore() &&
-                                p.getGameResultStatus() == GameResultStatus.PROGRESSING)
-                        .forEach(p -> p.setGameResultStatus(GameResultStatus.WON));
+                                p.getRoundResult() == RoundResult.PROGRESSING)
+                        .forEach(p -> p.setRoundResult(RoundResult.WIN));
             }
 
             //check dealer's score - quells 21 and not BJ
@@ -546,41 +550,41 @@ public class Game {
 
                 gameSeatModels.stream()
                         .filter(p -> p.getMainScore() == 21 &&
-                                p.getGameResultStatus() == GameResultStatus.PROGRESSING)
-                        .forEach(p -> p.setGameResultStatus(GameResultStatus.PUSHED));
+                                p.getRoundResult() == RoundResult.PROGRESSING)
+                        .forEach(p -> p.setRoundResult(RoundResult.PUSH));
 
                 gameSeatModels.stream()
-                        .filter(p -> p.getGameResultStatus() == GameResultStatus.PROGRESSING)
-                        .forEach(p -> p.setGameResultStatus(GameResultStatus.LOST));
+                        .filter(p -> p.getRoundResult() == RoundResult.PROGRESSING)
+                        .forEach(p -> p.setRoundResult(RoundResult.LOSE));
             }
 
             //check dealer's score - more than 21 (too many)
             if (dealerModel.getScore() > 21) {
                 System.out.println(dealerModel.getNickName() + " has TOO MANY (" + dealerModel.getScore() + ")");
 
-                dealerModel.setGameResultStatus(GameResultStatus.TOO_MANY);
+                dealerModel.setRoundResult(RoundResult.BUST);
                 messageSenderImpl.broadcast(new WsMessage<>(DealerMapper.toDto(dealerModel), WsMessageType.DEALER));
 
 
                 gameSeatModels.stream()
                         .filter(p -> p.getMainScore() <= 21 &&
-                                p.getGameResultStatus() == GameResultStatus.PROGRESSING)
-                        .forEach(p -> p.setGameResultStatus(GameResultStatus.WON));
+                                p.getRoundResult() == RoundResult.PROGRESSING)
+                        .forEach(p -> p.setRoundResult(RoundResult.WIN));
             }
         }
 
         //output the dealer's game results to the console
-        if (dealerModel.getGameResultStatus() == GameResultStatus.BLACKJACK ||
-                dealerModel.getGameResultStatus() == GameResultStatus.TOO_MANY) {//TODO что-то я не понял почему тут BJ и TM в однои if-е...
+        if (dealerModel.getRoundResult() == RoundResult.BLACKJACK ||
+                dealerModel.getRoundResult() == RoundResult.BUST) {//TODO что-то я не понял почему тут BJ и TM в однои if-е...
 
-            System.out.println(dealerModel.getNickName() + " has " + dealerModel.getGameResultStatus());
+            System.out.println(dealerModel.getNickName() + " has " + dealerModel.getRoundResult());
 
         } else {
             System.out.println(dealerModel.getNickName() + " has " + dealerModel.getScore());
         }
 
         //output the seats' game results to the console
-        gameSeatModels.forEach(s -> System.out.println("Player on seat" + s.getSeatNumber() + " - " + s.getGameResultStatus()));
+        gameSeatModels.forEach(s -> System.out.println("Player on seat" + s.getSeatNumber() + " - " + s.getRoundResult()));
 
         distributeMoney();
         //playersBroadcastCallback.playersBroadcast();//TODO as for me it's pointless coz i do it in distributeMoney() before this line
@@ -597,12 +601,33 @@ public class Game {
             DeckShufflerModel.myShuffle(gameDeck);
         }
 
-        //delay after RESULT_ANNOUNCEMENT to give players time to see game results
+        //delay after RESULT_ANNOUNCEMENT to give playersInGameSession time to see game results
         try {
             Thread.sleep(TIME_FOR_RESULT_ANNOUNCEMENT);//5k
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+
+        List<PlayerSnapshot> playerSnapshots = players.stream()
+                .map(player -> new PlayerSnapshot(
+                        player.getUserModel(),
+                        player.getSeatModels().stream()
+                                .map(seat -> new SeatSnapshot(
+                                        player.getUserModel().getUserUUID(),
+                                        seat.getSeatNumber(),
+                                        seat.getMainScore(),
+                                        new ArrayList<>(seat.getMainHand()), // если список может меняться — создаём копию
+                                        seat.getCurrentBet(),
+                                        seat.getLastGameDecision(),
+                                        seat.getRoundResult()
+                                ))
+                                .toList(),
+                        player.isInTheGame()
+                ))
+                .toList();
+
+        GameResultSnapshot gameResultSnapshot = new GameResultSnapshot(playerSnapshots, dealerModel.getScore());
+
 
         for (PlayerModel p : players) {
             for (SeatModel s : p.getSeatModels()) {
@@ -646,7 +671,9 @@ public class Game {
         tableModel.setGame(false);
         isGameRunning = false;
 
-        return players;
+        return gameResultSnapshot;
+//        GameResult gameResult = new GameResult(playersInGameSession, dealerModel.getScore());
+//        return playersInGameSession;
     }
 
     private boolean isValidNextDecision(GameDecision gameDecision) {
@@ -662,9 +689,9 @@ public class Game {
             return;
         }
 
-        GameResultStatus result;
+        RoundResult result;
         for (SeatModel seatModel : gameSeatModels) {
-            result = seatModel.getGameResultStatus();
+            result = seatModel.getRoundResult();
 
             PlayerModel curPlayer = null;
             for (PlayerModel player : players) {
@@ -679,32 +706,32 @@ public class Game {
                 return;
             }
 
-            if (result == GameResultStatus.CASHED_OUT) {
+            if (result == RoundResult.CASH_OUT) {
 //                curPlayer.changeBalance(seat.getCurrentBet() / 2);
                 curPlayer.getUserModel().changeBalance(seatModel.getCurrentBet().divide(BigDecimal.valueOf(2)));
 //                curPlayer.setBalanceDelta(curPlayer.getBalance());
             }
 
-            if (result == GameResultStatus.LOST) {
+            if (result == RoundResult.LOSE) {
                 //dealer.changeAmountOfMoney(seat.getCurrentBet()); //this is just for fun
             }
 
-            if (result == GameResultStatus.TOO_MANY) {
+            if (result == RoundResult.LOSE) {
                 //dealer.changeAmountOfMoney(seat.getCurrentBet()); //this is just for fun
             }
 
-            if (result == GameResultStatus.WON) {
+            if (result == RoundResult.WIN) {
 //                curPlayer.changeBalance(seat.getCurrentBet() * 2);
                 curPlayer.getUserModel().changeBalance(seatModel.getCurrentBet().multiply(BigDecimal.valueOf(2)));
 
             }
 
-            if (result == GameResultStatus.BLACKJACK) {
+            if (result == RoundResult.BLACKJACK) {
 //                curPlayer.changeBalance((int) (seat.getCurrentBet() * 2.5));//in general x1.5, but here is 2.5
                 curPlayer.getUserModel().changeBalance(seatModel.getCurrentBet().multiply(BigDecimal.valueOf(2.5)));
             }
 
-            if (result == GameResultStatus.PUSHED) {
+            if (result == RoundResult.PUSH) {
                 curPlayer.getUserModel().changeBalance(seatModel.getCurrentBet());
             }
         }
@@ -724,7 +751,7 @@ public class Game {
 
 
     public GameDecision gettingDecision(SeatModel seatModel) {
-        //TODO display it in the players' interface
+        //TODO display it in the playersInGameSession' interface
         messageSenderImpl.broadcast(new WsMessage<>(SeatMapper.toDto(seatModel), WsMessageType.CURRENT_SEAT));
 
         tableModel.setTurnOfPlayerId(seatModel.getPlayerUUID());

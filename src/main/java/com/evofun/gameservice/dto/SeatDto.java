@@ -1,7 +1,7 @@
 package com.evofun.gameservice.dto;
 
 import com.evofun.gameservice.game.GameDecision;
-import com.evofun.gameservice.game.GameResultStatus;
+import com.evofun.gameservice.game.RoundResult;
 import com.evofun.gameservice.model.CardModel;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
@@ -23,7 +23,7 @@ public class SeatDto {
     private List<CardModel> mainHand = new ArrayList<>();
     private BigDecimal currentBet = BigDecimal.ZERO;
     private GameDecision lastGameDecision = null;
-    private GameResultStatus gameResultStatus = null;
+    private RoundResult roundResult = null;
 
     @JsonIgnore
     public SeatDto(UUID playerUUID, int seatNumber) {

@@ -1,7 +1,6 @@
 package com.evofun.gameservice.model;
 
-import com.evofun.gameservice.game.GameResultStatus;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.evofun.gameservice.game.RoundResult;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,7 +16,7 @@ public class DealerModel {//TODO dto
     private List<CardModel> hand = new ArrayList<>();
     @Getter
     @Setter
-    private GameResultStatus gameResultStatus;
+    private RoundResult roundResult;
     @Getter
     @Setter
     private boolean isThereHiddenCard = false;
@@ -68,7 +67,7 @@ public class DealerModel {//TODO dto
     public void fullSeatReset(){
         score = 0;
         hand = new ArrayList<>();
-        gameResultStatus = null;
+        roundResult = null;
         isAceUsed = false;
     }
 
@@ -95,6 +94,7 @@ public class DealerModel {//TODO dto
         score = tmpScore;
 
         if(score > 21)
-            setGameResultStatus(GameResultStatus.TOO_MANY);
+//            setGameResultStatus(GameResultStatus.TOO_MANY);
+            setRoundResult(RoundResult.LOSE);
     }
 }

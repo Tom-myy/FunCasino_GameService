@@ -10,7 +10,7 @@ public class DealerMapper {
         dto.setNickName(dealerModel.getNickName());
         dto.setScore(dealerModel.getScore());
         dto.setHand(dealerModel.getHand());
-        dto.setGameResultStatus(dealerModel.getGameResultStatus());
+        dto.setRoundResult(dealerModel.getRoundResult());
         dto.setThereHiddenCard(dealerModel.isThereHiddenCard());
 
         return dto;

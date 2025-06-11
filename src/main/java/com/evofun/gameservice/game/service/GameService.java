@@ -1,8 +1,10 @@
 package com.evofun.gameservice.game.service;
 
+import com.evofun.gameservice.db.*;
 import com.evofun.gameservice.dto.UserPublicDto;
 import com.evofun.gameservice.forGame.UserServiceRemote;
 import com.evofun.gameservice.game.GameDecision;
+//import com.evofun.gameservice.game.GameResult;
 import com.evofun.gameservice.game.PlayerModel;
 import com.evofun.gameservice.game.PlayerRegistry;
 import com.evofun.gameservice.model.Game;
@@ -11,7 +13,6 @@ import com.evofun.gameservice.game.timer.BettingTimeObserver;
 import com.evofun.gameservice.game.timer.DecisionTimeObserver;
 import com.evofun.gameservice.game.timer.TimerService;
 import com.evofun.gameservice.game.timer.TimerType;
-import com.evofun.gameservice.dto.PlayerPublicDto;
 import com.evofun.gameservice.websocket.message.WsMessage;
 import com.evofun.gameservice.websocket.message.WsMessageSenderImpl;
 import com.evofun.gameservice.websocket.message.WsMessageType;
@@ -36,14 +37,18 @@ public class GameService {
     private final WsMessageSenderImpl messageSenderImpl;
     private final Game game;
     private final UserServiceRemote userServiceRemote;
+    private final GameSessionService gameSessionService;
+    private final PlayerInGameSessionService playerInGameSessionService;
 
-    public GameService(BettingTimeObserver bettingTimeObserver, DecisionTimeObserver decisionTimeObserver, TableService tableService, TimerService timerService, PlayerRegistry playerRegistry, WsMessageSenderImpl messageSenderImpl, UserServiceRemote userServiceRemote) {
+    public GameService(BettingTimeObserver bettingTimeObserver, DecisionTimeObserver decisionTimeObserver, TableService tableService, TimerService timerService, PlayerRegistry playerRegistry, WsMessageSenderImpl messageSenderImpl, UserServiceRemote userServiceRemote, GameSessionService gameSessionService, PlayerInGameSessionService playerInGameSessionService) {
         this.bettingTimeObserver = bettingTimeObserver;
         this.tableService = tableService;
         this.timerService = timerService;
         this.playerRegistry = playerRegistry;
         this.messageSenderImpl = messageSenderImpl;
         this.userServiceRemote = userServiceRemote;
+        this.gameSessionService = gameSessionService;
+        this.playerInGameSessionService = playerInGameSessionService;
         this.game = new Game(tableService.getTable(), messageSenderImpl, timerService, playerRegistry, decisionTimeObserver);
     }
 
@@ -111,7 +116,7 @@ public class GameService {
         }
     }
 
-    private void handleAfterGame(List<PlayerModel> playerModels) {
+    private void handleAfterGame(List<PlayerSnapshot> playerModels) {
         if (playerModels == null) {
             logger.error("Game result is null");
             return;
@@ -155,12 +160,40 @@ public class GameService {
     private void startGameAsync() {
         executor.submit(() -> {
             try {
-                List<PlayerModel> result = game.startGame();
-                handleAfterGame(result);
+//                List<PlayerModel> result = game.startGame();
+                GameResultSnapshot gameResult = game.startGame();
+                handleAfterGame(gameResult.getPlayersInGameSession());
+
+                //save game result into DB
+                saveGameResultsIntoDb(gameResult);
             } catch (Exception e) {
                 logger.error("Game failed", e);
             }
         });
+    }
+
+    private void saveGameResultsIntoDb(GameResultSnapshot gameResult) {
+        UUID gameSessionId = UUID.randomUUID();
+        GameSession gameSession = new GameSession(
+                gameSessionId,
+                gameResult.getDealerScore(),
+                GameSessionStatus.FINISHED);
+
+        gameSessionService.saveGame(gameSession);
+
+        List<SeatInGame> seatInGameList = new ArrayList<>();
+        for (PlayerSnapshot p : gameResult.getPlayersInGameSession()) {
+            for (SeatSnapshot s : p.getSeats() ) {
+                seatInGameList.add(new SeatInGame(
+                        gameSessionId,
+                        s.getSeatNumber(),
+                        s.getPlayerUUID(),
+                        s.getRoundResult(),
+                        s.getCurrentBet()));
+            }
+        }
+
+        playerInGameSessionService.savePlayerInGameSession(seatInGameList);
     }
 
     public void setDecisionField(GameDecision gameDecision) {

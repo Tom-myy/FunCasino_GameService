@@ -25,14 +25,14 @@ public class BettingTimeObserver implements TimerObserver {
     public void timeWasChanged(int seconds) {
         if (seconds == -1 && onTimeout != null) {
             messageExecutor.submit(() -> {
-                messageSenderImpl.broadcast(new WsMessage<>("", WsMessageType.TIMER_CANCEL));//TODO mustn't broadcast - players at the table\in the game
+                messageSenderImpl.broadcast(new WsMessage<>("", WsMessageType.TIMER_CANCEL));//TODO mustn't broadcast - playersInGameSession at the table\in the game
             });
 
             onTimeout.run();
         }
         else
             messageExecutor.submit(() -> {
-                messageSenderImpl.broadcast(new WsMessage<>(seconds, WsMessageType.TIMER));//TODO mustn't broadcast - players at the table\in the game
+                messageSenderImpl.broadcast(new WsMessage<>(seconds, WsMessageType.TIMER));//TODO mustn't broadcast - playersInGameSession at the table\in the game
             });
 
     }

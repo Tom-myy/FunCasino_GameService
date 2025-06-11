@@ -25,21 +25,21 @@ public class SeatModel {
     @Setter @Getter
     private GameDecision lastGameDecision = null;
     @Getter @Setter
-    private GameResultStatus gameResultStatus = null;
+    private RoundResult roundResult = null;
 
     //model fields:
     private String aceScore = "0/0";
     private static final int MINIMUM_ACE_SUMMAND = 1;
     private boolean isAceUsed = false;
 
-    public SeatModel(UUID playerUUID, int seatNumber, int mainScore, List<CardModel> mainHand, BigDecimal currentBet, GameDecision lastGameDecision, GameResultStatus gameResultStatus) {
+    public SeatModel(UUID playerUUID, int seatNumber, int mainScore, List<CardModel> mainHand, BigDecimal currentBet, GameDecision lastGameDecision, RoundResult roundResult) {
         this.playerUUID = playerUUID;
         this.seatNumber = seatNumber;
         this.mainScore = mainScore;
         this.mainHand = mainHand;
         this.currentBet = currentBet;
         this.lastGameDecision = lastGameDecision;
-        this.gameResultStatus = gameResultStatus;
+        this.roundResult = roundResult;
     }
 
     public void fullSeatReset(){
@@ -47,7 +47,7 @@ public class SeatModel {
         currentBet = BigDecimal.ZERO;
         mainHand = new ArrayList<>();
         lastGameDecision = null;
-        gameResultStatus = null;
+        roundResult = null;
         isAceUsed = false;
     }
 
@@ -74,11 +74,12 @@ public class SeatModel {
         mainScore = score;
 
         if(mainScore > 21)
-            setGameResultStatus(GameResultStatus.TOO_MANY);
+            setRoundResult(RoundResult.LOSE);
+//            setGameResultStatus(GameResultStatus.TOO_MANY);
     }
 
     public void resetGameResultStatus() {
-        gameResultStatus = GameResultStatus.PROGRESSING;
+        roundResult = RoundResult.PROGRESSING;
     }
 
     public boolean equalsExcludingCurrentBet(SeatModel seatModel) {
@@ -88,7 +89,7 @@ public class SeatModel {
                 mainScore == seatModel.mainScore &&
                 Objects.equals(playerUUID, seatModel.playerUUID) &&
                 Objects.equals(lastGameDecision, seatModel.lastGameDecision) &&
-                gameResultStatus == seatModel.gameResultStatus &&
+                roundResult == seatModel.roundResult &&
                 Objects.equals(mainHand, seatModel.mainHand) &&
                 Objects.equals(aceScore, seatModel.aceScore);
     }
@@ -110,7 +111,7 @@ public class SeatModel {
         return "Seat{" +
                 "isAceUsed=" + isAceUsed +
                 ", aceScore='" + aceScore + '\'' +
-                ", gameResultStatus=" + gameResultStatus +
+                ", gameResultStatus=" + roundResult +
                 ", lastGameDecision=" + lastGameDecision +
                 ", mainHand=" + mainHand +
                 ", currentBet=" + currentBet +

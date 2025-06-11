@@ -10,7 +10,7 @@ import java.util.UUID;
 @Getter
 @Component
 public class PlayerRegistry {
-    private final List<PlayerModel> playerModels = new LinkedList<>();//TODO change to Map<UUID, Player> players = new ConcurrentHashMap<>() for productivity
+    private final List<PlayerModel> playerModels = new LinkedList<>();//TODO change to Map<UUID, Player> playersInGameSession = new ConcurrentHashMap<>() for productivity
 
     public void addPlayer(PlayerModel playerModel) {
         playerModels.add(playerModel);

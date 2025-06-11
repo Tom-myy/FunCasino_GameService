@@ -14,7 +14,7 @@ public class SeatMapper {
                 dto.getMainHand(),
                 dto.getCurrentBet(),
                 dto.getLastGameDecision(),
-                dto.getGameResultStatus()
+                dto.getRoundResult()
         );
     }
 
@@ -27,7 +27,7 @@ public class SeatMapper {
         dto.setMainHand(seatModel.getMainHand());
         dto.setCurrentBet(seatModel.getCurrentBet());
         dto.setLastGameDecision(seatModel.getLastGameDecision());
-        dto.setGameResultStatus(seatModel.getGameResultStatus());
+        dto.setRoundResult(seatModel.getRoundResult());
 
         return dto;
     }
