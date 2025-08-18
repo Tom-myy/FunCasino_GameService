@@ -1,5 +1,8 @@
 package com.evofun.gameservice.websocket.handler;
 
+import com.evofun.gameservice.MoneyServiceClient;
+import com.evofun.gameservice.db.UserGameBalanceDto;
+import com.evofun.gameservice.exception.NotEnoughBalanceException;
 import com.evofun.gameservice.game.PlayerModel;
 import com.evofun.gameservice.game.PlayerService;
 import com.evofun.gameservice.mapper.PlayerPublicMapper;
@@ -30,14 +33,16 @@ public class WsSeatHandler {
     private final PlayerService playerService;
     private final GameService gameService;
     private final ValidationService validationService;
+    private final MoneyServiceClient moneyServiceClient;
 
-    public WsSeatHandler(ObjectMapper objectMapper, WsMessageSenderImpl messageSenderImpl, TableService tableService, PlayerService playerService, GameService gameService, ValidationService validationService) {
+    public WsSeatHandler(ObjectMapper objectMapper, WsMessageSenderImpl messageSenderImpl, TableService tableService, PlayerService playerService, GameService gameService, ValidationService validationService, MoneyServiceClient moneyServiceClient) {
         this.objectMapper = objectMapper;
         this.messageSenderImpl = messageSenderImpl;
         this.tableService = tableService;
         this.playerService = playerService;
         this.gameService = gameService;
         this.validationService = validationService;
+        this.moneyServiceClient = moneyServiceClient;
     }
 
     public void handleTakeSeat(WsMessage<?> wsMessage, WsClient wsClient) {
@@ -53,7 +58,7 @@ public class WsSeatHandler {
 
         tableService.addSeat(seatModel);
         playerService.addSeat(seatModel);
-//        messageSenderImpl.sendToClient(seat.getUserUUID(), new WsMessage<>(PlayerMapper.toDto(player)/*player*/, WsMessageType.PLAYER_DATA));//TODO is this necessary?
+//        messageSenderImpl.sendToClient(seat.getUserId(), new WsMessage<>(PlayerMapper.toDto(player)/*player*/, WsMessageType.PLAYER_DATA));//TODO is this necessary?
 
         messageSenderImpl.broadcast(new WsMessage<>(SeatMapper.toDtoList(tableService.getSeats()), WsMessageType.SEATS));
 
@@ -79,7 +84,7 @@ public class WsSeatHandler {
         PlayerModel playerModel = playerService.removeSeatAndRefund(seatModel);
         tableService.removeSeat(seatModel);
         //TODO not sure that i need to send 'PLAYER_DATA' to player.. if need - mb send it in 'handleTakeSeat':
-        messageSenderImpl.sendToClient(seatModel.getPlayerUUID(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel)/*player*/, WsMessageType.PLAYER_DATA));//TODO playerDTO
+        messageSenderImpl.sendToClient(seatModel.getPlayerId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel)/*player*/, WsMessageType.PLAYER_DATA));//TODO playerDTO
 
         tableService.sendPhaseUpdateToPlayer(seatDto);
 
@@ -97,13 +102,17 @@ public class WsSeatHandler {
         if (!tableService.isSeatOwnedByPlayer(wsClient.getPlayerUUID(), dto.getSeatNumber()))
             throw new GameValidationException("This is not your seat.", "Player tried to update bet for seat that does not own it.");
 
+        if(!moneyServiceClient.reserveMoneyForBet(wsClient.getPlayerUUID(), dto.getBet()))
+            throw new NotEnoughBalanceException("Player doesn't have enough money for his bet. ",
+                    "You don't have enough money for this bet.");
+
         SeatDto seatDto = new SeatDto(wsClient.getPlayerUUID(), dto.getSeatNumber(), dto.getBet());
         SeatModel seatModel = SeatMapper.toModel(seatDto);
 
         tableService.replaceSeatAndUpdateBetAtTheTable(seatModel);
         PlayerModel playerModel = playerService.replaceSeatAndUpdateBetInPlayer(seatModel);
         //TODO not sure that i need to send 'PLAYER_DATA' to player.. if need - mb send it in 'handleTakeSeat':
-        messageSenderImpl.sendToClient(seatModel.getPlayerUUID(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel)/*player*/, WsMessageType.PLAYER_DATA));//TODO playerDTO
+        messageSenderImpl.sendToClient(seatModel.getPlayerId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel)/*player*/, WsMessageType.PLAYER_DATA));//TODO playerDTO
 
         gameService.tryStartBettingTime();
 

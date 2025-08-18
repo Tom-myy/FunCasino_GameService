@@ -19,5 +19,5 @@ public class TableDto {
     private DealerModel dealerModel = null;
     private boolean isGame = false;
     private int playerCount = 0;
-    private Map<UUID, String> playerNickNames = new HashMap<>();//<userUUID, playerNickName>
+    private Map<UUID, String> playerNickNames = new HashMap<>();//<userId, playerNickName>
 }

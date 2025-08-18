@@ -7,7 +7,10 @@ public class PlayerInternalMapper {
     public static PlayerInternalDto toPlayerInternalDto(PlayerModel playerModel) {
         PlayerInternalDto playerInternalDto = new PlayerInternalDto();
 
-        playerInternalDto.setUserInternalDto(UserInternalMapper.toInternalDto(playerModel.getUserModel()));
+        playerInternalDto.setUserId(playerModel.getUserId());
+        playerInternalDto.setNickname(playerModel.getNickname());
+        playerInternalDto.setBalance(playerModel.getBalance());
+        playerInternalDto.setBalanceDelta(playerModel.getBalanceDelta());
         playerInternalDto.setSeatsDto(SeatMapper.toDtoList(playerModel.getSeatModels()));
         playerInternalDto.setInTheGame(playerModel.isInTheGame());
 

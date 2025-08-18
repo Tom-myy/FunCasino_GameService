@@ -21,7 +21,7 @@ public class SeatMapper {
     public static SeatDto toDto(SeatModel seatModel) {
         SeatDto dto = new SeatDto();
 
-        dto.setPlayerUUID(seatModel.getPlayerUUID());
+        dto.setPlayerUUID(seatModel.getPlayerId());
         dto.setSeatNumber(seatModel.getSeatNumber());
         dto.setMainScore(seatModel.getMainScore());
         dto.setMainHand(seatModel.getMainHand());

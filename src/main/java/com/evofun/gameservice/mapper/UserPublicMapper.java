@@ -1,26 +1,27 @@
+/*
 package com.evofun.gameservice.mapper;
 
-import com.evofun.gameservice.dto.UserInternalDto;
-import com.evofun.gameservice.dto.UserPublicDto;
-import com.evofun.gameservice.model.UserModel;
+//import com.evofun.gameservice.model.UserModel;
 
 public class UserPublicMapper {
-    public static UserPublicDto toPublicDto(UserModel userModel) {
+*/
+/*    public static UserPublicDto toPublicDto(UserModel userModel) {
         UserPublicDto userPublicDto = new UserPublicDto();
 
-        userPublicDto.setPlayerUUID(userModel.getUserUUID());
+        userPublicDto.setUserId(userModel.getUserId());
         userPublicDto.setName(userModel.getName());
         userPublicDto.setSurname(userModel.getSurname());
         userPublicDto.setNickname(userModel.getNickname());
         userPublicDto.setBalance(userModel.getBalance());
 
         return userPublicDto;
-    }
+    }*//*
+
 
     public static UserPublicDto toPublicDto(UserInternalDto userInternalDto) {
         UserPublicDto userPublicDto = new UserPublicDto();
 
-        userPublicDto.setPlayerUUID(userInternalDto.getUserUUID());
+        userPublicDto.setUserId(userInternalDto.getUserUUID());
         userPublicDto.setName(userInternalDto.getName());
         userPublicDto.setSurname(userInternalDto.getSurname());
         userPublicDto.setNickname(userInternalDto.getNickname());
@@ -29,15 +30,18 @@ public class UserPublicMapper {
         return userPublicDto;
     }
 
+*/
 /*    public static UserModel toModel(UserPublicDto userDto) {TODO fuck.. and mb unneeded!
         UserModel userModel = new UserModel();
 
-        userModel.setUserUUID(userDto.getUserUUID());
+        userModel.setUserId(userDto.getUserId());
         userModel.setName(userDto.getName());
         userModel.setSurname(userDto.getSurname());
         userModel.setNickname(userDto.getNickname());
         userModel.setBalance(userDto.getBalance());
 
         return userModel;
-    }*/
+    }*//*
+
 }
+*/

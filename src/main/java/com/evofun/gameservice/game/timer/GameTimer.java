@@ -14,6 +14,7 @@ public class GameTimer {
     @Getter
     private volatile int time = -1;
 
+
     public GameTimer(TimerObserver observer) {
         this.observer = observer;
     }
@@ -46,6 +47,37 @@ public class GameTimer {
         time = -1;
 
         notifyObserver(-1);
+    }
+
+    @Getter
+    private volatile int suspendedTime;
+
+    public synchronized void suspendTimer() {
+        isRunning = false;
+        suspendedTime = time;
+    }
+
+    public synchronized void continueTimer() {
+        if (isRunning) return;
+
+        isRunning = true;
+        time = --suspendedTime;
+
+        timerExecutor.submit(() -> {
+            notifyObserver(time);
+
+            while (time > 0 && isRunning) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    break;
+                }
+                time--;
+                if (isRunning) notifyObserver(time);
+            }
+
+            stopTimer();
+        });
     }
 
     private void notifyObserver(int time) {

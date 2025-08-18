@@ -1,22 +1,18 @@
-/*
-package com.evofun.gameservice.dto;
+package com.evofun.gameservice.forGame;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
 import java.math.BigDecimal;
 import java.util.UUID;
 
-@Getter
-@Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class UserPublicDto {
-    private String name;
-    private String surname;
+@Getter
+@Setter
+public class UserBalanceUpdateDto {
     private UUID userId;
-    private String nickname;
-    private BigDecimal balance;
+    private BigDecimal balanceDelta;
 }
-*/

@@ -16,6 +16,8 @@ public class TimerService {
     private int decisionTime;
     private final Map<TimerType, GameTimer> timers = new ConcurrentHashMap<>();
 
+
+
     public void start(TimerType type, TimerObserver observer) {
         stopAll();
         GameTimer timer = new GameTimer(observer);
@@ -28,6 +30,13 @@ public class TimerService {
     }
 
     public void stop(TimerType type) {
+        GameTimer timer = timers.remove(type);
+        if (timer != null) {
+            timer.stopTimer();
+        }
+    }
+
+    public void suspendBettingTime(TimerType type) {
         GameTimer timer = timers.remove(type);
         if (timer != null) {
             timer.stopTimer();

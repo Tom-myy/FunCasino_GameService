@@ -17,7 +17,7 @@ public class JwtUtil {
         Claims claims = extractAllClaimsFromGameToken(token);
         return new JwtUser(
                 UUID.fromString(claims.getSubject()),
-                claims.get("nickName", String.class)
+                claims.get("nickname", String.class)
         );
     }
 
@@ -31,7 +31,7 @@ public class JwtUtil {
 
 /*    private String generateToken(UserModel userModel) {
         return Jwts.builder()
-                .setSubject(userModel.getUserUUID().toString())
+                .setSubject(userModel.getUserId().toString())
                 .claim("nickName", userModel.getNickname())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // 1 day

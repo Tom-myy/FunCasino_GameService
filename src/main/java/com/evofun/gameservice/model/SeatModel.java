@@ -13,7 +13,7 @@ import java.util.UUID;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class SeatModel {
     @Getter @Setter
-    private UUID playerUUID;
+    private UUID playerId;
     @Getter
     private int seatNumber;
     @Getter
@@ -25,15 +25,17 @@ public class SeatModel {
     @Setter @Getter
     private GameDecision lastGameDecision = null;
     @Getter @Setter
-    private RoundResult roundResult = null;
+    private IRoundResult roundResult = null;
+    @Getter @Setter
+    boolean inTheGame = false;
 
     //model fields:
     private String aceScore = "0/0";
     private static final int MINIMUM_ACE_SUMMAND = 1;
     private boolean isAceUsed = false;
 
-    public SeatModel(UUID playerUUID, int seatNumber, int mainScore, List<CardModel> mainHand, BigDecimal currentBet, GameDecision lastGameDecision, RoundResult roundResult) {
-        this.playerUUID = playerUUID;
+    public SeatModel(UUID playerId, int seatNumber, int mainScore, List<CardModel> mainHand, BigDecimal currentBet, GameDecision lastGameDecision, IRoundResult roundResult) {
+        this.playerId = playerId;
         this.seatNumber = seatNumber;
         this.mainScore = mainScore;
         this.mainHand = mainHand;
@@ -42,13 +44,23 @@ public class SeatModel {
         this.roundResult = roundResult;
     }
 
-    public void fullSeatReset(){
+    public void restartBeforeGame(){
+        mainScore = 0;
+        mainHand = new ArrayList<>();
+        lastGameDecision = null;
+        roundResult = null;
+        isAceUsed = false;
+//        inTheGame = true;//it seems that Game marks them already
+    }
+
+    public void restartAfterGame(){
         mainScore = 0;
         currentBet = BigDecimal.ZERO;
         mainHand = new ArrayList<>();
         lastGameDecision = null;
         roundResult = null;
         isAceUsed = false;
+        inTheGame = false;
     }
 
     public void calculateScore(CardModel cardModel) {
@@ -74,12 +86,12 @@ public class SeatModel {
         mainScore = score;
 
         if(mainScore > 21)
-            setRoundResult(RoundResult.LOSE);
+            setRoundResult(FinalRoundResult.LOSE);
 //            setGameResultStatus(GameResultStatus.TOO_MANY);
     }
 
     public void resetGameResultStatus() {
-        roundResult = RoundResult.PROGRESSING;
+        roundResult = null;
     }
 
     public boolean equalsExcludingCurrentBet(SeatModel seatModel) {
@@ -87,7 +99,7 @@ public class SeatModel {
 
         return seatNumber == seatModel.seatNumber &&
                 mainScore == seatModel.mainScore &&
-                Objects.equals(playerUUID, seatModel.playerUUID) &&
+                Objects.equals(playerId, seatModel.playerId) &&
                 Objects.equals(lastGameDecision, seatModel.lastGameDecision) &&
                 roundResult == seatModel.roundResult &&
                 Objects.equals(mainHand, seatModel.mainHand) &&
@@ -99,7 +111,7 @@ public class SeatModel {
 
         return seatNumber == seatModel.seatNumber &&
                 mainScore == seatModel.mainScore &&
-                Objects.equals(playerUUID, seatModel.playerUUID);
+                Objects.equals(playerId, seatModel.playerId);
     }
 
     public void printMoneyInfo(){
@@ -117,7 +129,7 @@ public class SeatModel {
                 ", currentBet=" + currentBet +
                 ", mainScore=" + mainScore +
                 ", seatNumber=" + seatNumber +
-                ", userUUID=" + playerUUID +
+                ", userId=" + playerId +
                 '}';
     }
 
@@ -136,8 +148,8 @@ public class SeatModel {
 
     public Seat() {
     }
-    public Seat(UUID userUUID, int seatNumber) {
-        this.userUUID = userUUID;
+    public Seat(UUID userId, int seatNumber) {
+        this.userId = userId;
         this.seatNumber = seatNumber;
     }
     @JsonIgnore

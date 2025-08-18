@@ -1,8 +1,10 @@
 package com.evofun.gameservice.model;
 
+import com.evofun.gameservice.MoneyServiceClient;
 import com.evofun.gameservice.db.GameResultSnapshot;
 import com.evofun.gameservice.db.PlayerSnapshot;
 import com.evofun.gameservice.db.SeatSnapshot;
+import com.evofun.gameservice.exception.NotEnoughBalanceException;
 import com.evofun.gameservice.game.*;
 import com.evofun.gameservice.mapper.DealerMapper;
 import com.evofun.gameservice.mapper.PlayerPublicMapper;
@@ -23,7 +25,9 @@ import org.slf4j.LoggerFactory;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class Game {
     private static final Logger logger = LoggerFactory.getLogger(Game.class);
@@ -34,7 +38,6 @@ public class Game {
     private List<CardModel> gameDeck = null;
     private DealerModel dealerModel;
     private TableModel tableModel;
-//    private MyTimer timer;
     private TimerService timerService;
     private PlayerRegistry playerRegistry;
     @Getter
@@ -42,14 +45,11 @@ public class Game {
     private boolean isGameRunning = false;
     private DecisionTimeObserver decisionTimeObserver;
 
-
-/*    PlayersBroadcastCallback playersBroadcastCallback;//It's for sending to certain player his player data
-    private GameToMessageHandlerListener listener;*/
-
     private final WsMessageSenderImpl messageSenderImpl;//TODO bad violation!
 
-    private List<PlayerModel> players;//for money management
+    private final MoneyServiceClient moneyServiceClient;//TODO move to other layer coz of layer violation!!!
 
+    private List<PlayerModel> gamePlayers = null;//for money management
 
     private GamePhaseUI gameStatusForInterface = GamePhaseUI.EMPTY_TABLE;
 
@@ -78,7 +78,6 @@ public class Game {
                 gameDecision.equals(GameDecision.STAND)) {
 
             gameDecisionField = gameDecision;
-//            timer.stopTimer();
             timerService.stop(TimerType.DECISION_TIME);
         } else {
             System.err.println("Server got invalid decision: " + gameDecision);
@@ -87,29 +86,19 @@ public class Game {
 
     public void changeGameStatusForInterface(GamePhaseUI status) {
         gameStatusForInterface = status;
-//        listener.broadcast(new MyPackage<>(gameStatusForInterface, EMessageType.E_GAME_STATUS_FOR_INTERFACE));
         messageSenderImpl.broadcast(new WsMessage<>(gameStatusForInterface, WsMessageType.E_GAME_STATUS_FOR_INTERFACE));
     }
 
-    public int getCountOfPlayersReadyForGame() {
-        return gameSeatModels.size();
-    }
-
-    public Game(TableModel tableModel, WsMessageSenderImpl messageSenderImpl, TimerService timerService, PlayerRegistry playerRegistry, DecisionTimeObserver decisionTimeObserver) {
-//        this.listener = listener;
+    public Game(TableModel tableModel, WsMessageSenderImpl messageSenderImpl, TimerService timerService, PlayerRegistry playerRegistry, DecisionTimeObserver decisionTimeObserver, MoneyServiceClient moneyServiceClient) {
         this.tableModel = tableModel;
-//        this.playersInGameSession = playersInGameSession;
-//        this.playersBroadcastCallback = callback;
-//        this.timer = timer;
-//        this.messageSender = messageSender;
         this.messageSenderImpl = messageSenderImpl;
         this.timerService = timerService;
         this.playerRegistry = playerRegistry;
         this.decisionTimeObserver = decisionTimeObserver;
-        players = playerRegistry.getPlayerModels();
+        gamePlayers = playerRegistry.getPlayerModels();
+        this.moneyServiceClient = moneyServiceClient;
     }
 
-//    public List<PlayerModel> startGame() {
     public GameResultSnapshot startGame() {
         if (tableModel.isGame()) {
             return null;
@@ -118,34 +107,53 @@ public class Game {
             isGameRunning = true;
         }
 
-//        timer.stopTimer();
         timerService.stop(TimerType.BETTING_TIME);
 
+//        gameSeatModels = tableModel.getAndSetGameSeats();
 
-//        listener.broadcast(new MyPackage<>("", EMessageType.GAME_STARTED));
-        gameSeatModels = tableModel.getAndSetGameSeats();
+        //DEBUG
+        for (PlayerModel player : gamePlayers) {
+            System.err.println("-------"+player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
+        }
+
+        preparePlayersAndSeatsForGame();
+        for(PlayerModel player: gamePlayers) {
+            messageSenderImpl.sendToClient(
+                    player.getUserId(),
+                    new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(player), WsMessageType.PLAYER_DATA)
+            );
+        }
+
+        gameSeatModels = gameSeatModels.stream()
+                .sorted(Comparator.comparingInt(SeatModel::getSeatNumber))
+                .collect(Collectors.toList());
+
         for (SeatModel s : gameSeatModels) {//TODO delete
             s.printMoneyInfo();
         }
 
-        for (SeatModel s : gameSeatModels) {
-            for (PlayerModel p : players) {
-                if (p.getPlayerUUID().equals(s.getPlayerUUID())) {
+/*        for (SeatModel s : gameSeatModels) {
+            s.setInTheGame(true);
+            for (PlayerModel p : gamePlayers) {
+                if (p.getUserId().equals(s.getPlayerId())) {
                     p.setInTheGame(true);
+                    p.setBalanceDelta(BigDecimal.ZERO);
 
-                    messageSenderImpl.sendToClient(p.getPlayerUUID(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(p), WsMessageType.PLAYER_DATA));
+                    messageSenderImpl.sendToClient(p.getUserId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(p), WsMessageType.PLAYER_DATA));
                     break;
                 }
-//                p.resetBalanceDifference();
             }
+        }*/
+
+        //DEBUG
+        for (PlayerModel player : gamePlayers) {
+            System.err.println("-------"+player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
         }
 
-//        listener.broadcast(new MyPackage<>(TIME_FOR_DECISION, EMessageType.TIME_FOR_DECISION));
         tableModel.setDealerModel(new DealerModel());
         dealerModel = tableModel.getDealerModel();
         messageSenderImpl.broadcast(new WsMessage<>(/*gameSeats*/TableMapper.toDto(tableModel), WsMessageType.GAME_STARTED/*TABLE_STATUS*/));//mb send after resetGameResultStatus
         messageSenderImpl.broadcast(new WsMessage<>(DealerMapper.toDto(dealerModel), WsMessageType.DEALER));//TODO mb not to send the dealer (//mb send after resetGameResultStatus)
-//        String nextGame;
 
         if (gameDeck == null) {
             gameDeck = new ArrayList<>(deckModelObject.getOneUsualDeck());//TODO mb change smth here
@@ -157,9 +165,6 @@ public class Game {
         }
         messageSenderImpl.broadcast(new WsMessage<>(RoundResult.PROGRESSING, WsMessageType.E_GAME_RESULT_STATUS));
 
-//        dealer.resetGameResultStatus(); //TODO mb change PROGRESSING to null
-//        listener.broadcast(new MyPackage<>(DealerMapper.toDto(dealer), EMessageType.DEALER));//TODO mb not to send the dealer
-
         System.out.println("Bets are closed, good luck!");
 
         changeGameStatusForInterface(GamePhaseUI.DEALING_CARDS);//TODO mb i dont need it
@@ -168,18 +173,16 @@ public class Game {
         for (int i = 1; i <= COUNT_OF_INITIAL_CARDS; ++i) {
             for (SeatModel seatModel : gameSeatModels) {
 
-                CardModel cardModel = gameDeck.removeLast();
+                CardModel cardModel = takeCard();
 
                 seatModel.calculateScore(cardModel);
-
-
 
                 if (seatModel.getMainScore() == 21) {
                     System.out.println(cardModel.getInitial() + " of " + cardModel.getSuit() + " was " +
                             "dealt to player on seat #" + seatModel.getSeatNumber() + ", score - BLACKJACK (" + seatModel.getMainScore() + ")");
                     //TODO display it in the playersInGameSession' interface
 
-                    seatModel.setRoundResult(RoundResult.BLACKJACK);
+                    seatModel.setRoundResult(ProgressRoundResult.BLACKJACK);
                     SeatDto seatDto = SeatMapper.toDto(seatModel);
                     messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
 
@@ -197,14 +200,13 @@ public class Game {
                 }
             }
 
-            CardModel cardModel = gameDeck.removeLast();
-
+            CardModel cardModel = takeCard();
 
             if (i == 1) {
+                dealerModel.calculateScore(cardModel);
                 System.out.println(cardModel.getInitial() + " of " + cardModel.getSuit() + " was " +
                         "dealt to '" + dealerModel.getNickName() + "', score = " + dealerModel.getScore());
 
-                dealerModel.calculateScore(cardModel);
                 messageSenderImpl.broadcast(new WsMessage<>(DealerMapper.toDto(dealerModel), WsMessageType.DEALER));
 
             } else {//TODO do it more beautiful and smarter
@@ -223,17 +225,20 @@ public class Game {
         }
         changeGameStatusForInterface(GamePhaseUI.CARDS_WERE_DEALT);
 
+        //DEBUG
+        for (PlayerModel player : gamePlayers) {
+            System.err.println("-------"+player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
+        }
+
         changeGameStatusForInterface(GamePhaseUI.DECISION_TIME);
 
-//        EDecision firstDecision;
         System.out.println("\nPlayer's decisions:");
 
+        for (SeatModel curSeat : gameSeatModels) {
 
-        for (SeatModel seatModel : gameSeatModels) {
+            while (curSeat.getMainScore() < 21) {
 
-            while (seatModel.getMainScore() < 21) {
-
-                GameDecision firstGameDecision = gettingDecision(seatModel);
+                GameDecision firstGameDecision = gettingDecision(curSeat);
 
                 try {//имитация того, что дилер берёт карту
                     Thread.sleep(TIME_BETWEEN_CARDS);//1
@@ -248,61 +253,65 @@ public class Game {
                 }
 
                 if (firstGameDecision.equals(GameDecision.STAND)) {
-                    seatModel.setLastGameDecision(firstGameDecision);
-                    SeatDto seatDto = SeatMapper.toDto(seatModel);
+                    curSeat.setLastGameDecision(firstGameDecision);
+                    SeatDto seatDto = SeatMapper.toDto(curSeat);
                     messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
-                    System.out.println(seatModel.getPlayerUUID() + " decided to " + firstGameDecision);
+                    System.out.println(curSeat.getPlayerId() + " decided to " + firstGameDecision);
 
-                    System.out.println(seatModel.getPlayerUUID() + " is standing on " + seatModel.getMainScore());
+                    System.out.println(curSeat.getPlayerId() + " is standing on " + curSeat.getMainScore());
 
+                    curSeat.setRoundResult(ProgressRoundResult.STAND);
                     break;
 
                 } else if (firstGameDecision.equals(GameDecision.HIT)) {
-                    seatModel.setLastGameDecision(firstGameDecision);
+                    curSeat.setLastGameDecision(firstGameDecision);
 
-                    System.out.println(seatModel.getPlayerUUID() + " decided to " + firstGameDecision);
+                    System.out.println(curSeat.getPlayerId() + " decided to " + firstGameDecision);
 
                     GameDecision nextGameDecision;
                     boolean isStand = false;
 
                     do {
-                        CardModel cardModel = gameDeck.removeLast();
+                        CardModel cardModel = takeCard();
 
-
-                        seatModel.calculateScore(cardModel);
-
+                        curSeat.calculateScore(cardModel);
 
                         System.out.println(cardModel.getInitial() + " of " + cardModel.getSuit() + " was " +
-                                "dealt to '" + seatModel.getPlayerUUID() + "'");
+                                "dealt to '" + curSeat.getPlayerId() + "', score = " + curSeat.getMainScore());
 
-                        SeatDto seatDto = SeatMapper.toDto(seatModel);
+                        SeatDto seatDto = SeatMapper.toDto(curSeat);
                         messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
 
-                        if (seatModel.getMainScore() < 21) {
+                        if (curSeat.getMainScore() < 21) {
                             do {
-                                System.out.print(seatModel.getPlayerUUID() + " has " + seatModel.getMainScore() + ", what is your next decision? (hit, cash-out, stand) - ");//todo сделать, чтобы это предлагал дилер
+                                System.out.print(curSeat.getPlayerId() + " has " + curSeat.getMainScore() + ", what is your next decision? (hit, cash-out, stand) - ");//todo сделать, чтобы это предлагал дилер
 
-                                nextGameDecision = gettingDecision(seatModel);
+                                nextGameDecision = gettingDecision(curSeat);
                                 //TODO по идее нужна проверка на налл как и с первым решением
-                                seatModel.setLastGameDecision(nextGameDecision);
+                                curSeat.setLastGameDecision(nextGameDecision);
 
                                 if (nextGameDecision.equals(GameDecision.STAND)) {
-                                    System.out.println(seatModel.getPlayerUUID() + " is standing on " + seatModel.getMainScore());
+                                    System.out.println(curSeat.getPlayerId() + " is standing on " + curSeat.getMainScore());
                                     isStand = true;
 
+                                    curSeat.setRoundResult(ProgressRoundResult.STAND);
                                     break;
                                 } else if (nextGameDecision.equals(GameDecision.CASH_OUT)) {
-                                    System.out.println(seatModel.getPlayerUUID() + " CASHOUT");
+                                    System.out.println(curSeat.getPlayerId() + " CASHOUT");
                                     isStand = true;
-                                    seatModel.setRoundResult(RoundResult.CASH_OUT);
-                                    seatDto = SeatMapper.toDto(seatModel);
+                                    curSeat.setRoundResult(FinalRoundResult.CASH_OUT);
+                                    seatDto = SeatMapper.toDto(curSeat);
                                     messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
 
                                     break;
                                 }
                             } while (!isValidNextDecision(nextGameDecision));
+                        } else if (curSeat.getMainScore() == 21) {
+                            isStand = true;
+                            curSeat.setRoundResult(ProgressRoundResult.STAND);
                         } else {
                             isStand = true;
+                            curSeat.setRoundResult(FinalRoundResult.LOSE);
                         }
 
                     } while (!isStand);
@@ -313,8 +322,8 @@ public class Game {
 
                     //money
                     PlayerModel curPlayer = null;
-                    for (PlayerModel player : players) {
-                        if (player.getPlayerUUID().equals(seatModel.getPlayerUUID())) {
+                    for (PlayerModel player : gamePlayers) {
+                        if (player.getUserId().equals(curSeat.getPlayerId())) {
                             curPlayer = player;
                         }
                     }
@@ -324,13 +333,12 @@ public class Game {
                         return null;
                     }
 
-//                    curPlayer.changeBalance(-seat.getCurrentBet());//balance was changed
-                    curPlayer.getUserModel().changeBalance(seatModel.getCurrentBet().negate());//balance was changed
+                    curPlayer.changeBalance(curSeat.getCurrentBet().negate());//TODO move to appropriate place
 
                     SeatModel tmpSeatModel = null;
                     int tmpInd = -1;
                     for (SeatModel s : curPlayer.getSeatModels()) {
-                        if (seatModel.getSeatNumber() == s.getSeatNumber()) {
+                        if (curSeat.getSeatNumber() == s.getSeatNumber()) {
                             tmpSeatModel = s;
                             tmpInd = curPlayer.getSeatModels().indexOf(s);
                         }
@@ -341,29 +349,33 @@ public class Game {
                         return null;
                     }
 
-                    curPlayer.getSeatModels().set(tmpInd, seatModel);
+                    curPlayer.getSeatModels().set(tmpInd, curSeat);
 
-//                    seat.setCurrentBet(seat.getCurrentBet() * 2);
-                    seatModel.setCurrentBet(seatModel.getCurrentBet().multiply(BigDecimal.valueOf(2)));
+                    curSeat.setCurrentBet(curSeat.getCurrentBet().multiply(BigDecimal.valueOf(2)));
                     playersBroadcast();//TODO think here, coz in fact i dont need broadcast (i change only one Player)
 
-                    seatModel.setLastGameDecision(firstGameDecision);
-                    System.out.println(seatModel.getPlayerUUID() + " decided to " + firstGameDecision);
+                    curSeat.setLastGameDecision(firstGameDecision);
+                    System.out.println(curSeat.getPlayerId() + " decided to " + firstGameDecision);
 
-                    CardModel cardModel = gameDeck.removeLast();
+                    CardModel cardModel = takeCard();
 
-                    seatModel.calculateScore(cardModel);
+                    curSeat.calculateScore(cardModel);
 
-                    SeatDto seatDto = SeatMapper.toDto(seatModel);
+                    SeatDto seatDto = SeatMapper.toDto(curSeat);
                     messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
 
-                    System.out.println(firstGameDecision + " for " + seatModel.getPlayerUUID());
+                    System.out.println(firstGameDecision + " for " + curSeat.getPlayerId());
                     System.out.println(cardModel.getInitial() + " of " + cardModel.getSuit() + " was " +
-                            "dealt to '" + seatModel.getPlayerUUID() + "'");
+                            "dealt to '" + curSeat.getPlayerId() + "'");
 
 
-                    if (seatModel.getMainScore() < 21) {
-                        System.out.println(seatModel.getPlayerUUID() + " has " + seatModel.getMainScore());
+                    if (curSeat.getMainScore() < 21) {
+                        System.out.println(curSeat.getPlayerId() + " has " + curSeat.getMainScore());
+                        curSeat.setRoundResult(ProgressRoundResult.STAND);
+                    } else if (curSeat.getMainScore() == 21) {
+                        curSeat.setRoundResult(ProgressRoundResult.STAND);
+                    } else {
+                        curSeat.setRoundResult(FinalRoundResult.LOSE);
                     }
 
                     break;
@@ -374,8 +386,8 @@ public class Game {
                     //TODO finish this split option
 
                     seat.setLastGameDecision(firstGameDecision);
-                    System.out.println(seat.getUserUUID() + " decided to " + firstGameDecision);
-                    System.out.println(firstGameDecision + " for " + seat.getUserUUID());
+                    System.out.println(seat.getUserId() + " decided to " + firstGameDecision);
+                    System.out.println(firstGameDecision + " for " + seat.getUserId());
 
                     //replacing 1st cards
                     seat.getAdditionalHandForSplit().add(seat.getMainHand().getLast());//take card from main hand and put in additional hand
@@ -398,7 +410,7 @@ public class Game {
                     //i need to take the player with this seat and change his old seat to new one
                     Player splitPlayer = null;
                     for (Player p : playersInGameSession) {
-                        if (p.getUserUUID().equals(seat.getUserUUID())) {
+                        if (p.getUserId().equals(seat.getUserId())) {
                             splitPlayer = p;
                         }
                         break;
@@ -434,38 +446,43 @@ public class Game {
                     //
 
                 }*/ else if (firstGameDecision.equals(GameDecision.CASH_OUT)) {
-                    seatModel.setLastGameDecision(firstGameDecision);
-                    System.out.println(seatModel.getPlayerUUID() + " cashed-out");
-                    seatModel.setRoundResult(RoundResult.CASH_OUT);
-                    SeatDto seatDto = SeatMapper.toDto(seatModel);
+                    curSeat.setLastGameDecision(firstGameDecision);
+                    System.out.println(curSeat.getPlayerId() + " cashed-out");
+                    curSeat.setRoundResult(FinalRoundResult.CASH_OUT);
+                    SeatDto seatDto = SeatMapper.toDto(curSeat);
                     messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
 
                     break;
                 }
 
             }
-            if (seatModel.getMainScore() == 21 && seatModel.getMainHand().size() == 2) {
-                System.out.println(seatModel.getPlayerUUID() + " has BLACKJACK (" + seatModel.getMainScore() + ") - amazing");
+            if (curSeat.getMainScore() == 21 && curSeat.getMainHand().size() == 2) {
+                System.out.println(curSeat.getPlayerId() + " has BLACKJACK (" + curSeat.getMainScore() + ") - amazing");
 
-                seatModel.setRoundResult(RoundResult.BLACKJACK);//тк если у диллера тоже BJ, то у игрока PUSH
-                SeatDto seatDto = SeatMapper.toDto(seatModel);
+                curSeat.setRoundResult(ProgressRoundResult.BLACKJACK);//тк если у диллера тоже BJ, то у игрока PUSH
+                SeatDto seatDto = SeatMapper.toDto(curSeat);
                 messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
 
             }
-            if (seatModel.getMainScore() == 21 && seatModel.getMainHand().size() > 2) {
-                System.out.println(seatModel.getPlayerUUID() + " has " + seatModel.getMainScore() + " - good catch");
-                SeatDto seatDto = SeatMapper.toDto(seatModel);
+            if (curSeat.getMainScore() == 21 && curSeat.getMainHand().size() > 2) {
+                System.out.println(curSeat.getPlayerId() + " has " + curSeat.getMainScore() + " - good catch");
+                SeatDto seatDto = SeatMapper.toDto(curSeat);
                 messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
+                curSeat.setRoundResult(ProgressRoundResult.STAND);
 
             }
-            if (seatModel.getMainScore() > 21) {
-                System.out.println(seatModel.getPlayerUUID() + " has TOO MANY (" + seatModel.getMainScore() + ") - sadly");
+            if (curSeat.getMainScore() > 21) {
+                System.out.println(curSeat.getPlayerId() + " has TOO MANY (" + curSeat.getMainScore() + ") - sadly");
 
-                seatModel.setRoundResult(RoundResult.LOSE);//как по мне - не особо правильно это тут распологать
-
+                curSeat.setRoundResult(FinalRoundResult.LOSE);//как по мне - не особо правильно это тут распологать
             }
-
         }
+
+        //DEBUG
+        for (PlayerModel player : gamePlayers) {
+            System.err.println("-------"+player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
+        }
+
         changeGameStatusForInterface(GamePhaseUI.DEALER_DECISION);
 
         try {
@@ -482,23 +499,40 @@ public class Game {
             throw new RuntimeException(e);
         }
 
+        boolean isEveryOneBust = true;
+        for (SeatModel playerSeat : gameSeatModels) {//mb to think over
+            if (playerSeat.getRoundResult() == FinalRoundResult.LOSE) {
+                isEveryOneBust = true;
+            } else {
+                isEveryOneBust = false;
+            }
+        }
+
         //check dealer's score and then appropriate actions (hit or stand)
-        while (dealerModel.getScore() < 17) {
+        if (!isEveryOneBust) {
+            while (dealerModel.getScore() < 17) {
 
-            System.out.println("hit for 'Dealer'");
-            CardModel cardModel = gameDeck.removeLast();
-            dealerModel.calculateScore(cardModel);
-            messageSenderImpl.broadcast(new WsMessage<>(DealerMapper.toDto(dealerModel), WsMessageType.DEALER));
-            System.out.println(cardModel.getInitial() + " of " + cardModel.getSuit() + " was " +
-                    "dealt to '" + dealerModel.getNickName() + "', score - " + dealerModel.getScore());
+                System.out.println("hit for 'Dealer'");
+                CardModel cardModel = takeCard();
+                dealerModel.calculateScore(cardModel);
+                messageSenderImpl.broadcast(new WsMessage<>(DealerMapper.toDto(dealerModel), WsMessageType.DEALER));
+                System.out.println(cardModel.getInitial() + " of " + cardModel.getSuit() + " was " +
+                        "dealt to '" + dealerModel.getNickName() + "', score - " + dealerModel.getScore());
 
-            if (dealerModel.getScore() < 17) {
-                try {
-                    Thread.sleep(TIME_BETWEEN_CARDS);//1s but it's not TIME_BETWEEN_CARDS
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                if (dealerModel.getScore() < 17) {
+                    try {
+                        Thread.sleep(TIME_BETWEEN_CARDS);//1s but it's not TIME_BETWEEN_CARDS
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
             }
+        } else {
+            //TODO mb to do smth
+        }
+        //DEBUG
+        for (PlayerModel player : gamePlayers) {
+            System.err.println("-------"+player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
         }
 
         {//this block of code is for dealer's turn (after playersInGameSession)...
@@ -514,34 +548,12 @@ public class Game {
 
 
                 gameSeatModels.stream()//TODO develop insurance if Dealer has ace
-                        .filter(p -> p.getRoundResult() == RoundResult.BLACKJACK)
-                        .forEach(p -> p.setRoundResult(RoundResult.PUSH));
+                        .filter(p -> p.getRoundResult() == ProgressRoundResult.BLACKJACK)
+                        .forEach(p -> p.setRoundResult(FinalRoundResult.PUSH));
 
                 gameSeatModels.stream()
-                        .filter(p -> p.getRoundResult() == RoundResult.PROGRESSING)
-                        .forEach(p -> p.setRoundResult(RoundResult.LOSE));
-            }
-
-            //check dealer's score - less or equals 20
-            if (dealerModel.getScore() <= 20) {
-                System.out.println(dealerModel.getNickName() + " has " + dealerModel.getScore());
-
-                gameSeatModels.stream()
-                        .filter(p -> p.getMainScore() < dealerModel.getScore() &&
-                                p.getRoundResult() == RoundResult.PROGRESSING)//отметка, что он к примеру не кєшанул
-                        //или тп, а ещё в игре
-                        .forEach(p -> p.setRoundResult(RoundResult.LOSE));
-
-                gameSeatModels.stream()
-                        .filter(p -> p.getMainScore() == dealerModel.getScore() &&
-                                p.getRoundResult() == RoundResult.PROGRESSING)//отметка, что он к примеру не кєшанул
-                        //или тп, а ещё в игре
-                        .forEach(p -> p.setRoundResult(RoundResult.PUSH));
-
-                gameSeatModels.stream()
-                        .filter(p -> p.getMainScore() > dealerModel.getScore() &&
-                                p.getRoundResult() == RoundResult.PROGRESSING)
-                        .forEach(p -> p.setRoundResult(RoundResult.WIN));
+                        .filter(s -> s.getRoundResult() == ProgressRoundResult.STAND)
+                        .forEach(p -> p.setRoundResult(FinalRoundResult.LOSE));
             }
 
             //check dealer's score - quells 21 and not BJ
@@ -550,13 +562,36 @@ public class Game {
 
                 gameSeatModels.stream()
                         .filter(p -> p.getMainScore() == 21 &&
-                                p.getRoundResult() == RoundResult.PROGRESSING)
-                        .forEach(p -> p.setRoundResult(RoundResult.PUSH));
+                                p.getRoundResult() == ProgressRoundResult.STAND)
+                        .forEach(p -> p.setRoundResult(FinalRoundResult.PUSH));
 
                 gameSeatModels.stream()
-                        .filter(p -> p.getRoundResult() == RoundResult.PROGRESSING)
-                        .forEach(p -> p.setRoundResult(RoundResult.LOSE));
+                        .filter(p -> p.getRoundResult() == ProgressRoundResult.STAND)
+                        .forEach(p -> p.setRoundResult(FinalRoundResult.LOSE));
             }
+
+            //check dealer's score - less or equals 20
+            if (dealerModel.getScore() <= 20) {
+                System.out.println(dealerModel.getNickName() + " has " + dealerModel.getScore());
+
+                gameSeatModels.stream()
+                        .filter(p -> p.getMainScore() == dealerModel.getScore() &&
+                                p.getRoundResult() == ProgressRoundResult.STAND)//отметка, что он к примеру не кєшанул
+                        //или тп, а ещё в игре
+                        .forEach(p -> p.setRoundResult(FinalRoundResult.PUSH));
+
+                gameSeatModels.stream()
+                        .filter(s -> s.getMainScore() < dealerModel.getScore() &&
+                                s.getRoundResult() == ProgressRoundResult.STAND)
+                        .forEach(p -> p.setRoundResult(FinalRoundResult.LOSE));
+
+                gameSeatModels.stream()
+                        .filter(p -> p.getMainScore() > dealerModel.getScore() &&
+                                p.getRoundResult() == ProgressRoundResult.STAND)
+                        .forEach(p -> p.setRoundResult(FinalRoundResult.WIN));
+            }
+
+
 
             //check dealer's score - more than 21 (too many)
             if (dealerModel.getScore() > 21) {
@@ -565,12 +600,15 @@ public class Game {
                 dealerModel.setRoundResult(RoundResult.BUST);
                 messageSenderImpl.broadcast(new WsMessage<>(DealerMapper.toDto(dealerModel), WsMessageType.DEALER));
 
-
                 gameSeatModels.stream()
                         .filter(p -> p.getMainScore() <= 21 &&
-                                p.getRoundResult() == RoundResult.PROGRESSING)
-                        .forEach(p -> p.setRoundResult(RoundResult.WIN));
+                                p.getRoundResult() == ProgressRoundResult.STAND)
+                        .forEach(p -> p.setRoundResult(FinalRoundResult.WIN));
             }
+        }
+        //DEBUG
+        for (PlayerModel player : gamePlayers) {
+            System.err.println("-------"+player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
         }
 
         //output the dealer's game results to the console
@@ -586,9 +624,12 @@ public class Game {
         //output the seats' game results to the console
         gameSeatModels.forEach(s -> System.out.println("Player on seat" + s.getSeatNumber() + " - " + s.getRoundResult()));
 
-        distributeMoney();
-        //playersBroadcastCallback.playersBroadcast();//TODO as for me it's pointless coz i do it in distributeMoney() before this line
+        for(SeatModel s: gameSeatModels) {
+            if(s.getRoundResult() == null)
+                logger.error("Some seat has no round result");
+        }
 
+        distributeMoney();
 
         //TODO change GAME_RESULT -> send smth like SeatResultDto instead of gameSeats...
         List<SeatDto> gameSeatsDto = SeatMapper.toDtoList(gameSeatModels);
@@ -608,12 +649,17 @@ public class Game {
             throw new RuntimeException(e);
         }
 
-        List<PlayerSnapshot> playerSnapshots = players.stream()
+        List<PlayerSnapshot> playerSnapshots = gamePlayers.stream()
+                .filter(PlayerModel::isInTheGame)
                 .map(player -> new PlayerSnapshot(
-                        player.getUserModel(),
+                        player.getUserId(),
+                        player.getNickname(),
+                        player.getBalance(),
+                        player.getBalanceDelta(),
                         player.getSeatModels().stream()
+                                .filter(SeatModel::isInTheGame)
                                 .map(seat -> new SeatSnapshot(
-                                        player.getUserModel().getUserUUID(),
+                                        player.getUserId(),
                                         seat.getSeatNumber(),
                                         seat.getMainScore(),
                                         new ArrayList<>(seat.getMainHand()), // если список может меняться — создаём копию
@@ -628,41 +674,45 @@ public class Game {
 
         GameResultSnapshot gameResultSnapshot = new GameResultSnapshot(playerSnapshots, dealerModel.getScore());
 
+        System.err.println("3333333333333"+playerSnapshots.get(0).getSeats().get(0).getRoundResult());
+        System.err.println("33333333"+playerSnapshots.size());
+        System.err.println("3333"+playerSnapshots.get(0).getSeats().size());
 
-        for (PlayerModel p : players) {
-            for (SeatModel s : p.getSeatModels()) {
-                s.fullSeatReset();
-            }
-            p.setWantsToStartGame(false);
-//            p.resetBalanceDifference();
-        }
+//     /   for (PlayerModel p : gamePlayers) {
+//            for (SeatModel s : p.getSeatModels()) {
+//                s.restartAfterGame();
+//            }
+//            p.setWantsToStartGame(false);
+//        }
 
-        playersBroadcast();//need because of s.fullSeatReset() for every player
+        clearPlayersAndSeatsAfterGame();
 
-        gameSeatModels = null;
+        playersBroadcast();//need because of s.restartAfterGame() for every player
+//      /  gameSeatModels = null;
 
         //reset dealer's game data
         dealerModel.fullSeatReset();
 
 
-        for (PlayerModel player : players) {
+        for (PlayerModel player : gamePlayers) {
             if (player.getSeatModels().isEmpty()) {
-                messageSenderImpl.sendToClient(player.getPlayerUUID(), new WsMessage<>(GamePhaseUI.EMPTY_TABLE, WsMessageType.E_GAME_STATUS_FOR_INTERFACE));
+                messageSenderImpl.sendToClient(player.getUserId(), new WsMessage<>(GamePhaseUI.EMPTY_TABLE, WsMessageType.E_GAME_STATUS_FOR_INTERFACE));
             } else {
-                messageSenderImpl.sendToClient(player.getPlayerUUID(), new WsMessage<>(GamePhaseUI.PLACING_BETS, WsMessageType.E_GAME_STATUS_FOR_INTERFACE));
+                messageSenderImpl.sendToClient(player.getUserId(), new WsMessage<>(GamePhaseUI.PLACING_BETS, WsMessageType.E_GAME_STATUS_FOR_INTERFACE));
             }
         }
 
-        for (PlayerModel p : players) {
+        clearGameDataAfterGame();
+/*      /  for (PlayerModel p : gamePlayers) {
             p.setInTheGame(false);
-            messageSenderImpl.sendToClient(p.getPlayerUUID(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(p), WsMessageType.PLAYER_DATA));
-        }
+            messageSenderImpl.sendToClient(p.getUserId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(p), WsMessageType.PLAYER_DATA));
+        }*/ //unless
+
         tableModel.setDealerModel(null);//мб необязательно
 
         //TODO mb combine GAME_RESULT and GAME_FINISHED somehow...
         List<SeatDto> seatsDto = SeatMapper.toDtoList(tableModel.getSeatModels());
         messageSenderImpl.broadcast(new WsMessage<>(seatsDto, WsMessageType.GAME_FINISHED));//sending exactly busy seats at the table (not gameSeats)...
-//        messageSenderImpl.broadcast(new WsMessage<>(table.getSeats(), WsMessageType.GAME_FINISHED));
         //TODO надо сделать так, чтобы играющий не мог занять ещё места пока не закончится игра
 
         //TODO (по поводу верхнего я хз как оно) пока что в этой реализации сделано так, что когда GAME _ FINISHED, то отправляется коллекция обычных мест
@@ -671,9 +721,10 @@ public class Game {
         tableModel.setGame(false);
         isGameRunning = false;
 
+        System.err.println("444444444444444"+playerSnapshots.get(0).getSeats().get(0).getRoundResult());
+        System.err.println("444444444"+playerSnapshots.size());
+        System.err.println("4444"+playerSnapshots.get(0).getSeats().size());
         return gameResultSnapshot;
-//        GameResult gameResult = new GameResult(playersInGameSession, dealerModel.getScore());
-//        return playersInGameSession;
     }
 
     private boolean isValidNextDecision(GameDecision gameDecision) {
@@ -683,78 +734,66 @@ public class Game {
     }
 
     public void distributeMoney() {//TODO check if everything works properly
-        if (players == null) {
-            logger.error("Player collection is null");
-            new Exception("Player collection is null").printStackTrace();
-            return;
-        }
 
-        RoundResult result;
+        if (gamePlayers == null)
+            throw new BlackjackException("Player collection is null in game during money distributing.");
+
+        IRoundResult result;
         for (SeatModel seatModel : gameSeatModels) {
             result = seatModel.getRoundResult();
 
             PlayerModel curPlayer = null;
-            for (PlayerModel player : players) {
-                if (player.getPlayerUUID().equals(seatModel.getPlayerUUID())) {
+            for (PlayerModel player : gamePlayers) {
+                if (player.getUserId().equals(seatModel.getPlayerId())) {
                     curPlayer = player;
                 }
             }
 
-            if (curPlayer == null) {
-                logger.error("curPlayer is null");
-                new Exception("curPlayer is null").printStackTrace();
-                return;
-            }
+            if (curPlayer == null)
+                throw new BlackjackException("Player not found in game during money distributing.");
 
-            if (result == RoundResult.CASH_OUT) {
+            if (result == FinalRoundResult.CASH_OUT) {
 //                curPlayer.changeBalance(seat.getCurrentBet() / 2);
-                curPlayer.getUserModel().changeBalance(seatModel.getCurrentBet().divide(BigDecimal.valueOf(2)));
+                curPlayer.changeBalance(seatModel.getCurrentBet().divide(BigDecimal.valueOf(2)));
 //                curPlayer.setBalanceDelta(curPlayer.getBalance());
             }
 
-            if (result == RoundResult.LOSE) {
+            if (result == FinalRoundResult.LOSE) {
                 //dealer.changeAmountOfMoney(seat.getCurrentBet()); //this is just for fun
             }
 
-            if (result == RoundResult.LOSE) {
+            if (result == FinalRoundResult.LOSE) {
                 //dealer.changeAmountOfMoney(seat.getCurrentBet()); //this is just for fun
             }
 
-            if (result == RoundResult.WIN) {
+            if (result == FinalRoundResult.WIN) {
 //                curPlayer.changeBalance(seat.getCurrentBet() * 2);
-                curPlayer.getUserModel().changeBalance(seatModel.getCurrentBet().multiply(BigDecimal.valueOf(2)));
+                curPlayer.changeBalance(seatModel.getCurrentBet().multiply(BigDecimal.valueOf(2)));
 
             }
 
-            if (result == RoundResult.BLACKJACK) {
+            if (result == FinalRoundResult.BLACKJACK) {
 //                curPlayer.changeBalance((int) (seat.getCurrentBet() * 2.5));//in general x1.5, but here is 2.5
-                curPlayer.getUserModel().changeBalance(seatModel.getCurrentBet().multiply(BigDecimal.valueOf(2.5)));
+                curPlayer.changeBalance(seatModel.getCurrentBet().multiply(BigDecimal.valueOf(2.5)));
             }
 
-            if (result == RoundResult.PUSH) {
-                curPlayer.getUserModel().changeBalance(seatModel.getCurrentBet());
+            if (result == FinalRoundResult.PUSH) {
+                curPlayer.changeBalance(seatModel.getCurrentBet());
             }
         }
-
-/*        if (playersBroadcastCallback == null) {
-            logger.error("playersBroadcastCallback is null");
-            new Exception("playersBroadcastCallback is null").printStackTrace();
-            return;
-        }*/
 
         playersBroadcast();//if im not wrong - its for sending of results at the end of the game
 
-        for (PlayerModel player : players) {
-            System.err.println(player.getPlayerUUID() + " - balance - " + player.getUserModel().getBalance() + " delta - " + player.getUserModel().getBalanceDelta());
+        for (PlayerModel player : gamePlayers) {
+            System.err.println(player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
         }
     }
-
 
     public GameDecision gettingDecision(SeatModel seatModel) {
         //TODO display it in the playersInGameSession' interface
         messageSenderImpl.broadcast(new WsMessage<>(SeatMapper.toDto(seatModel), WsMessageType.CURRENT_SEAT));
 
-        tableModel.setTurnOfPlayerId(seatModel.getPlayerUUID());
+        tableModel.setTurnOfSeat(seatModel);
 //        timerForDecision = new MyTimer();//TODO mb initialise not here...
 
 /*        new Thread(() -> {
@@ -803,6 +842,7 @@ public class Game {
 
     public GameDecision basicDecision(SeatModel seatModel) {
         if (seatModel.getMainScore() > 11) {
+            seatModel.setRoundResult(ProgressRoundResult.STAND);
             return GameDecision.STAND;
 //            seat.setCurrentDecision(EDecision.STAND);
         } else {
@@ -810,7 +850,6 @@ public class Game {
 //            seat.setCurrentDecision(EDecision.HIT);
         }
     }
-
 
     public boolean isAbleToSplit(SeatModel seatModel) {//idk
         return seatModel.getMainHand().getFirst().getCoefficient() ==
@@ -821,10 +860,47 @@ public class Game {
         return seatModel.getLastGameDecision() == null;
     }
 
+    private CardModel takeCard() {
+        System.err.println("-----------------" + gameDeck.size());
+        return gameDeck.removeLast();
+    }
+
     //TODO playersBroadcast - bed violation!!!
     public void playersBroadcast() {//It's for sending to certain player his player data
-        for (PlayerModel playerModel : players) {
-            messageSenderImpl.sendToClient(playerModel.getPlayerUUID(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel), WsMessageType.PLAYER_DATA));
+        for (PlayerModel playerModel : gamePlayers) {
+            messageSenderImpl.sendToClient(playerModel.getUserId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel), WsMessageType.PLAYER_DATA));
         }
+    }
+
+    private void preparePlayersAndSeatsForGame(){
+        gameSeatModels = tableModel.getAndSetGameSeats();
+        gamePlayers = tableModel.markAndGetPlayersInGame();
+
+        restartPlayerAndSeatInfoBeforeGame();
+    }
+
+    private void clearPlayersAndSeatsAfterGame() {
+        restartPlayerAndSeatInfoAfterGame();
+    }
+
+    private void clearGameDataAfterGame() {
+        gameSeatModels = null;
+        gamePlayers = null;
+    }
+
+    private void restartPlayerAndSeatInfoBeforeGame(){
+        gameDecisionField = null;
+
+        gamePlayers.stream()
+                .filter(PlayerModel::isInTheGame)
+                .forEach(PlayerModel::restartBeforeGame);
+    }
+
+    private void restartPlayerAndSeatInfoAfterGame(){
+        gameDecisionField = null;
+
+        gamePlayers.stream()
+                .filter(PlayerModel::isInTheGame)
+                .forEach(PlayerModel::restartAfterGame);
     }
 }

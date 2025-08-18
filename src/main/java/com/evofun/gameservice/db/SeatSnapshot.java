@@ -1,6 +1,7 @@
 package com.evofun.gameservice.db;
 
 import com.evofun.gameservice.game.GameDecision;
+import com.evofun.gameservice.game.IRoundResult;
 import com.evofun.gameservice.game.RoundResult;
 import com.evofun.gameservice.model.CardModel;
 import lombok.AllArgsConstructor;
@@ -20,5 +21,5 @@ public class SeatSnapshot {
     private List<CardModel> mainHand;
     private BigDecimal currentBet;
     private GameDecision lastGameDecision;
-    private RoundResult roundResult;
+    private IRoundResult roundResult;
 }

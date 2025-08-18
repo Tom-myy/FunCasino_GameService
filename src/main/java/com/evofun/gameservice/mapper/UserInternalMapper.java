@@ -1,13 +1,16 @@
+/*
 package com.evofun.gameservice.mapper;
 
-import com.evofun.gameservice.dto.UserInternalDto;
-import com.evofun.gameservice.model.UserModel;
+import com.evofun.gameservice.db.PlayerSnapshot;
+import com.evofun.gameservice.forGame.UserBalanceUpdateDto;
+//import com.evofun.gameservice.model.UserModel;
 
 public class UserInternalMapper {
-    public static UserInternalDto toInternalDto(UserModel userModel) {
+*/
+/*    public static UserInternalDto toInternalDto(UserModel userModel) {
         UserInternalDto userInternalDto = new UserInternalDto();
 
-        userInternalDto.setUserUUID(userModel.getUserUUID());
+        userInternalDto.setUserId(userModel.getUserId());
         userInternalDto.setName(userModel.getName());
         userInternalDto.setSurname(userModel.getSurname());
         userInternalDto.setNickname(userModel.getNickname());
@@ -20,7 +23,7 @@ public class UserInternalMapper {
     public static UserModel toModel(UserInternalDto userInternalDto) {//could be not full...
         UserModel userModel = new UserModel();
 
-        userModel.setUserUUID(userInternalDto.getUserUUID());
+        userModel.setUserId(userInternalDto.getUserId());
         userModel.setName(userInternalDto.getName());
         userModel.setSurname(userInternalDto.getSurname());
         userModel.setNickname(userInternalDto.getNickname());
@@ -28,5 +31,18 @@ public class UserInternalMapper {
         userModel.setBalanceDelta(userInternalDto.getBalanceDelta());
 
         return userModel;
+    }*//*
+
+
+    public static UserBalanceUpdateDto playerSnapshotToBalanceUpdateDto(PlayerSnapshot playerSnapshot) {//could be not full...
+        UserBalanceUpdateDto userBalanceUpdateDto = new UserBalanceUpdateDto();
+
+        userBalanceUpdateDto.setUserId(playerSnapshot.getUserId());
+        userBalanceUpdateDto.setBalanceDelta(playerSnapshot.getBalanceDelta());
+
+        return userBalanceUpdateDto;
     }
+
+
 }
+*/

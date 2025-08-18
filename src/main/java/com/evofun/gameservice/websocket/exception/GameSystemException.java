@@ -1,5 +1,6 @@
 package com.evofun.gameservice.websocket.exception;
 
+import com.evofun.gameservice.common.error.ErrorPrefix;
 import com.evofun.gameservice.common.error.ExceptionUtils;
 import lombok.Getter;
 import lombok.ToString;
@@ -13,7 +14,7 @@ public class GameSystemException extends RuntimeException {
 
     public GameSystemException(String developerMessage) {
         super(developerMessage);
-        this.code = ExceptionUtils.generateErrorId("SYS");
+        this.code = ExceptionUtils.generateErrorId(ErrorPrefix.SYS);
         this.developerMessage = developerMessage;
     }
 

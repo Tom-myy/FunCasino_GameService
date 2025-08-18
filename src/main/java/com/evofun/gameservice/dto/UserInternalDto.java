@@ -1,10 +1,10 @@
+/*
 package com.evofun.gameservice.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -13,9 +13,9 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class UserInternalDto {
-    private UUID userUUID;
     private String name;
     private String surname;
+    private UUID userId;
     private String nickname;
     private BigDecimal balance;
     //internal:
@@ -24,7 +24,7 @@ public class UserInternalDto {
     @Override
     public String toString() {
         return "UserInternalDto{" +
-                "userUUID=" + userUUID +
+                "userId=" + userId +
                 ", name='" + name + '\'' +
                 ", surname='" + surname + '\'' +
                 ", nickname='" + nickname + '\'' +
@@ -33,3 +33,4 @@ public class UserInternalDto {
                 '}';
     }
 }
+*/

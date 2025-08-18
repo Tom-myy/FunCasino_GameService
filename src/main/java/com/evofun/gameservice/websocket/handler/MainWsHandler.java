@@ -1,6 +1,7 @@
 package com.evofun.gameservice.websocket.handler;
 
 import com.evofun.gameservice.common.error.ErrorCode;
+import com.evofun.gameservice.common.error.ErrorPrefix;
 import com.evofun.gameservice.common.error.ErrorDto;
 import com.evofun.gameservice.common.error.ExceptionUtils;
 import com.evofun.gameservice.dto.TableDto;
@@ -85,7 +86,7 @@ public class MainWsHandler extends TextWebSocketHandler {
         if (!wsClient.isAuthorized() && WsMessageType.AUTHORIZATION != wsMessage.getWsMessageType()) {
             logger.warn("TEMP publicc tried to send unauthorized message: " + wsMessage.getWsMessageType());
 
-            String code = ExceptionUtils.generateErrorId("AUTH");
+            String code = ExceptionUtils.generateErrorId(ErrorPrefix.AUTH);
             ErrorDto errorDto = new ErrorDto(ErrorCode.FORBIDDEN, code, "Unauthorized", null);
 
             messageSender.sendToClient(wsClient, new WsMessage<>(
@@ -133,7 +134,7 @@ public class MainWsHandler extends TextWebSocketHandler {
 //        UUID clientUUID = clientRegistry.findAuthUUIDBySession(session);
         UUID clientUUID = wsClient.getPlayerUUID();
 
-        tableService.removePlayerSeats(playerRegistry.findPlayerByUUID(clientUUID));
+        tableService.removePlayerSeats(playerRegistry.findPlayerById(clientUUID));
         clientRegistry.removeAuthenticatedClient(clientUUID);
         playerRegistry.removePlayerByUUID(clientUUID);
         //сделать некий метод, который после отключения клиента будет проверять списки клиентов,
@@ -161,7 +162,7 @@ public class MainWsHandler extends TextWebSocketHandler {
         }
 
         if(wsMessage.getMessage() == null) {
-            String code = ExceptionUtils.generateErrorId("JSON");
+            String code = ExceptionUtils.generateErrorId(ErrorPrefix.JSON);
 
             ErrorDto errorDto = new ErrorDto(ErrorCode.INVALID_REQUEST_FORMAT, code, "Invalid JSON message format - inner message is null", null);
 

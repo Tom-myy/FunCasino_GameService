@@ -2,19 +2,16 @@ package com.evofun.gameservice.db;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
 
+@AllArgsConstructor
+@NoArgsConstructor
 @Getter
 @Setter
-@AllArgsConstructor
-public class PlayerSnapshot {
+public class UserGameBalanceDto {
     private UUID userId;
-    private String nickname;
     private BigDecimal balance;
-    private BigDecimal balanceDelta;
-    List<SeatSnapshot> seats;
-    boolean inTheGame;
 }

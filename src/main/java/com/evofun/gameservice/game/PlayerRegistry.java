@@ -16,9 +16,9 @@ public class PlayerRegistry {
         playerModels.add(playerModel);
     }
 
-    public PlayerModel findPlayerByUUID(UUID playerUUID) {
+    public PlayerModel findPlayerById(UUID playerUUID) {
         for (PlayerModel playerModel : playerModels) {
-            if (playerModel.getPlayerUUID().equals(playerUUID)) {
+            if (playerModel.getUserId().equals(playerUUID)) {
                 return playerModel;
             }
         }
@@ -36,7 +36,7 @@ public class PlayerRegistry {
     }
 
     public void removePlayerByUUID(UUID uuid) {
-        PlayerModel playerModel = findPlayerByUUID(uuid);
+        PlayerModel playerModel = findPlayerById(uuid);
         if (playerModel != null)
             playerModels.remove(playerModel);
     }

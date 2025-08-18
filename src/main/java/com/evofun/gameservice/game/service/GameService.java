@@ -1,21 +1,20 @@
 package com.evofun.gameservice.game.service;
 
+import com.evofun.events.GameFinishedEvent;
+import com.evofun.gameservice.MoneyServiceClient;
 import com.evofun.gameservice.db.*;
-import com.evofun.gameservice.dto.UserPublicDto;
-import com.evofun.gameservice.forGame.UserServiceRemote;
 import com.evofun.gameservice.game.GameDecision;
 //import com.evofun.gameservice.game.GameResult;
 import com.evofun.gameservice.game.PlayerModel;
 import com.evofun.gameservice.game.PlayerRegistry;
+import com.evofun.gameservice.kafka.KafkaProducer;
 import com.evofun.gameservice.model.Game;
 import com.evofun.gameservice.model.SeatModel;
 import com.evofun.gameservice.game.timer.BettingTimeObserver;
 import com.evofun.gameservice.game.timer.DecisionTimeObserver;
 import com.evofun.gameservice.game.timer.TimerService;
 import com.evofun.gameservice.game.timer.TimerType;
-import com.evofun.gameservice.websocket.message.WsMessage;
 import com.evofun.gameservice.websocket.message.WsMessageSenderImpl;
-import com.evofun.gameservice.websocket.message.WsMessageType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -36,20 +35,23 @@ public class GameService {
     private final PlayerRegistry playerRegistry;
     private final WsMessageSenderImpl messageSenderImpl;
     private final Game game;
-    private final UserServiceRemote userServiceRemote;
     private final GameSessionService gameSessionService;
     private final PlayerInGameSessionService playerInGameSessionService;
+    private final KafkaProducer kafkaProducer;
+    private final MoneyServiceClient moneyServiceClient;
 
-    public GameService(BettingTimeObserver bettingTimeObserver, DecisionTimeObserver decisionTimeObserver, TableService tableService, TimerService timerService, PlayerRegistry playerRegistry, WsMessageSenderImpl messageSenderImpl, UserServiceRemote userServiceRemote, GameSessionService gameSessionService, PlayerInGameSessionService playerInGameSessionService) {
+
+    public GameService(BettingTimeObserver bettingTimeObserver, DecisionTimeObserver decisionTimeObserver, TableService tableService, TimerService timerService, PlayerRegistry playerRegistry, WsMessageSenderImpl messageSenderImpl, GameSessionService gameSessionService, PlayerInGameSessionService playerInGameSessionService, KafkaProducer kafkaProducer, MoneyServiceClient moneyServiceClient) {
         this.bettingTimeObserver = bettingTimeObserver;
         this.tableService = tableService;
         this.timerService = timerService;
         this.playerRegistry = playerRegistry;
         this.messageSenderImpl = messageSenderImpl;
-        this.userServiceRemote = userServiceRemote;
         this.gameSessionService = gameSessionService;
         this.playerInGameSessionService = playerInGameSessionService;
-        this.game = new Game(tableService.getTable(), messageSenderImpl, timerService, playerRegistry, decisionTimeObserver);
+        this.kafkaProducer = kafkaProducer;
+        this.moneyServiceClient = moneyServiceClient;
+        this.game = new Game(tableService.getTable(), messageSenderImpl, timerService, playerRegistry, decisionTimeObserver, moneyServiceClient);
     }
 
     public boolean isGameRunning() {
@@ -85,7 +87,7 @@ public class GameService {
 
     public void processRequestToStartGame(UUID clientUUID) {
         for (PlayerModel p : playerRegistry.getPlayerModels()) {
-            if (clientUUID.equals(p.getPlayerUUID())) {
+            if (clientUUID.equals(p.getUserId())) {
                 p.setWantsToStartGame(true);//TODO think about when player wanted to start game (clicked button)
                 // and then he left game - I need to uncheck his wish to start game
                 break;
@@ -96,7 +98,7 @@ public class GameService {
 
         for (SeatModel s : tableService.getCalculatedGameSeats()) {
             for (PlayerModel p : playerRegistry.getPlayerModels()) {
-                if (s.getPlayerUUID().equals(p.getPlayerUUID())) {
+                if (s.getPlayerId().equals(p.getUserId())) {
                     tmpPlayersWithBet.add(p);
                     break;
                 }
@@ -122,6 +124,16 @@ public class GameService {
             return;
         }
 
+        for (PlayerSnapshot playerSnapshot : playerModels) {
+            GameFinishedEvent gameFinishedEvent = new GameFinishedEvent(
+                    playerSnapshot.getUserId(),
+                    playerSnapshot.getBalanceDelta(),
+                    "GAME",//TODO enum
+                    null);
+
+            kafkaProducer.sendGameFinishedEvent(gameFinishedEvent);
+        }
+
 /*        List<PlayerModel> updated = userService.updateUsersAfterGame(playerModels);
         if (updated == null) {
             logger.error("Update failed");
@@ -144,17 +156,17 @@ public class GameService {
         }
 
         for (PlayerDto newPlayerDto : newListPlayerDto) {
-            messageSenderImpl.sendToClient(newPlayerDto.getUserUUID(), new WsMessage<>(newPlayerDto, WsMessageType.USER_INFO_REFRESH));
+            messageSenderImpl.sendToClient(newPlayerDto.getUserId(), new WsMessage<>(newPlayerDto, WsMessageType.USER_INFO_REFRESH));
         }*/
-        List<UserPublicDto> newListUserPublicDto = userServiceRemote.updateUsersAfterGame(playerModels);
+/*        List<UserPublicDto> newListUserPublicDto = userBalanceRemote.updateUsersAfterGame(playerModels);
         if (newListUserPublicDto == null) {
             logger.error("DTO fetch failed");
             return;
         }
 
         for (UserPublicDto newUserPublicDto : newListUserPublicDto) {
-            messageSenderImpl.sendToClient(newUserPublicDto.getPlayerUUID(), new WsMessage<>(newUserPublicDto, WsMessageType.USER_INFO_REFRESH));
-        }
+            messageSenderImpl.sendToClient(newUserPublicDto.getUserId(), new WsMessage<>(newUserPublicDto, WsMessageType.USER_INFO_REFRESH));
+        }*/
     }
 
     private void startGameAsync() {
@@ -181,10 +193,10 @@ public class GameService {
 
         gameSessionService.saveGame(gameSession);
 
-        List<SeatInGame> seatInGameList = new ArrayList<>();
+        List<GameSessionSeat> gameSessionSeatList = new ArrayList<>();
         for (PlayerSnapshot p : gameResult.getPlayersInGameSession()) {
             for (SeatSnapshot s : p.getSeats() ) {
-                seatInGameList.add(new SeatInGame(
+                gameSessionSeatList.add(new GameSessionSeat(
                         gameSessionId,
                         s.getSeatNumber(),
                         s.getPlayerUUID(),
@@ -193,7 +205,7 @@ public class GameService {
             }
         }
 
-        playerInGameSessionService.savePlayerInGameSession(seatInGameList);
+        playerInGameSessionService.savePlayerInGameSession(gameSessionSeatList);
     }
 
     public void setDecisionField(GameDecision gameDecision) {

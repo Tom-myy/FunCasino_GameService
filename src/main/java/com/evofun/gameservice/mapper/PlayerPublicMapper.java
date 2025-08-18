@@ -8,7 +8,8 @@ public class PlayerPublicMapper {
     public static PlayerPublicDto toPlayerPublicDto(PlayerModel playerModel) {
         PlayerPublicDto playerPublicDto = new PlayerPublicDto();
 
-        playerPublicDto.setUserPublicDto(UserPublicMapper.toPublicDto(playerModel.getUserModel()));
+        playerPublicDto.setNickname(playerModel.getNickname());
+        playerPublicDto.setBalance(playerModel.getBalance());
         playerPublicDto.setSeatsDto(SeatMapper.toDtoList(playerModel.getSeatModels()));
         playerPublicDto.setInTheGame(playerModel.isInTheGame());
 

@@ -12,7 +12,7 @@ public class PlayerInGameSessionService {
         this.seatInGameRepo = seatInGameRepo;
     }
 
-    public List<SeatInGame> savePlayerInGameSession(List<SeatInGame> seatInGameList) {
-        return seatInGameRepo.saveAll(seatInGameList);
+    public List<GameSessionSeat> savePlayerInGameSession(List<GameSessionSeat> gameSessionSeatList) {
+        return seatInGameRepo.saveAll(gameSessionSeatList);
     }
 }

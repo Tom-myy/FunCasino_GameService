@@ -1,5 +1,6 @@
 package com.evofun.gameservice.websocket.connection;
 
+import com.evofun.gameservice.db.UserGameBalanceDto;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.web.socket.WebSocketSession;
@@ -44,7 +45,7 @@ public class WsClient {
         return "WsClient{" +
                 "session=" + session +
                 ", wsConnectionStatus=" + wsConnectionStatus +
-                ", playerUUID=" + playerUUID +
+                ", userId=" + playerUUID +
                 ", isAuthorized=" + isAuthorized +
                 ", isReadyToGetMessages=" + isReadyToGetMessages +
                 '}';

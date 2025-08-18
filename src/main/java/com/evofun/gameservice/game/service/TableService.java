@@ -101,6 +101,13 @@ public class TableService {
         throw new GameSystemException("Seat wasn't changed. No matching seat found at the table");
     }
 
+    //TODO it's mot correct to leave it here
+    public void doubleDownBet(){//TODO mb to do smth here
+        SeatModel seatModel = tableModel.getTurnOfSeat();
+
+
+    }
+
     public List<SeatModel> getCalculatedGameSeats() {
         return tableModel.getCalculatedGameSeats();
     }
@@ -125,9 +132,9 @@ public class TableService {
         return false;
     }
 
-/*    public boolean isSeatOwnedByPlayer(UUID userUUID) {
+/*    public boolean isSeatOwnedByPlayer(UUID userId) {
         for (Seat seat : getTable().getSeats()) {
-            if (userUUID.equals(seat.getUserUUID()))
+            if (userId.equals(seat.getUserId()))
                 return true;
         }
         return false;
@@ -136,14 +143,14 @@ public class TableService {
     public boolean isSeatOwnedByPlayer(UUID playerUUID, int seatNumber) {
         SeatModel seatModel = tableModel.getSeatByNumber(seatNumber);
 
-        return seatModel.getPlayerUUID().equals(playerUUID);
+        return seatModel.getPlayerId().equals(playerUUID);
     }
 
     public void setPlayerCount(int playerCount) {
         tableModel.setPlayerCount(playerCount);
     }
 
-    public UUID getTurnOfPlayerId() {
-        return tableModel.getTurnOfPlayerId();
+    public SeatModel getTurnOfSeat() {
+        return tableModel.getTurnOfSeat();
     }
 }

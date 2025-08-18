@@ -9,31 +9,21 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class ExceptionUtils {
-/*    public static String extractValidationDetails(ConstraintViolationException ex) {
+    private static final String SERVICE_PREFIX = "GAME";
+
+    public static List<FieldErrorDto> extractFieldErrors(ConstraintViolationException ex) {
         return ex.getConstraintViolations().stream()
-                .map(violation -> {
-                    String field = violation.getPropertyPath().toString();
-                    String message = violation.getMessage();
-                    return field + ": " + message;
-                })
-                .collect(Collectors.joining("; "));
-    }*/
-public static List<FieldErrorDto> extractFieldErrors(ConstraintViolationException ex) {
-    return ex.getConstraintViolations().stream()
-            .map(v -> new FieldErrorDto(
-                    v.getPropertyPath().toString(),
-                    v.getMessage()
-            ))
-            .collect(Collectors.toList());
-}
+                .map(v -> new FieldErrorDto(
+                        v.getPropertyPath().toString(),
+                        v.getMessage()
+                ))
+                .collect(Collectors.toList());
+    }
 
-
-    public static String generateErrorId(String prefix) {
+    public static String generateErrorId(ErrorPrefix prefix) {
         String timestamp = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
         String shortUuid = UUID.randomUUID().toString().substring(0, 6);
-        return prefix + "-" + timestamp + "-" + shortUuid;
+        return SERVICE_PREFIX + "-" + prefix.toString() + "-" + timestamp + "-" + shortUuid;
     }
-
-    private ExceptionUtils() {}
 }

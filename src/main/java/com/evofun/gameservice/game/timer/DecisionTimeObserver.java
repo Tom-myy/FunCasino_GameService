@@ -21,9 +21,9 @@ public class DecisionTimeObserver implements TimerObserver {
     public void timeWasChanged(int seconds) {
         for (PlayerModel p : playerRegistry.getPlayersWhoAreInGame()) {
             if (seconds == -1)
-                messageSenderImpl.sendToClient(p.getPlayerUUID(), new WsMessage<>(seconds, WsMessageType.TIMER_CANCEL));
+                messageSenderImpl.sendToClient(p.getUserId(), new WsMessage<>(seconds, WsMessageType.TIMER_CANCEL));
             else
-                messageSenderImpl.sendToClient(p.getPlayerUUID(), new WsMessage<>(seconds, WsMessageType.TIMER));
+                messageSenderImpl.sendToClient(p.getUserId(), new WsMessage<>(seconds, WsMessageType.TIMER));
         }
     }
 }

@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 public class TableModel {
 
@@ -37,32 +38,32 @@ public class TableModel {
     private int playerCount = 0;
     @Getter
     @Setter
-    private UUID turnOfPlayerId = null;
+    private SeatModel turnOfSeat = null;
 /*    @Getter
     @Setter
     private EGamePhaseForInterface gamePhase = null;*/
 
     @Getter
-    private Map<UUID, String> playerNickNames = new HashMap<>();//<userUUID, playerNickName>
+    private Map<UUID, String> playerNickNames = new HashMap<>();//<userId, playerNickName>
 
     @JsonIgnore
     public void addPlayerNickName(PlayerModel player) {
-        if (playerNickNames.containsKey(player.getPlayerUUID())) {
+        if (playerNickNames.containsKey(player.getUserId())) {
 //            logger.error("PlayerUUID already exists in playerNickNames!");
             return;
         }
 
-        playerNickNames.put(player.getPlayerUUID(), player.getUserModel().getNickname());
+        playerNickNames.put(player.getUserId(), player.getNickname());
     }
 
     @JsonIgnore
     public void removePlayerNickName(PlayerModel player) {
-        if (!playerNickNames.containsKey(player.getPlayerUUID())) {
+        if (!playerNickNames.containsKey(player.getUserId())) {
             logger.error("PlayerUUID doesn't exist in playerNickNames!");
             return;
         }
 
-        playerNickNames.remove(player.getPlayerUUID());
+        playerNickNames.remove(player.getUserId());
     }
 
     @JsonIgnore
@@ -91,13 +92,13 @@ public class TableModel {
     public void removeSeat(SeatModel seatModel) {
         Integer index = null;
         for (SeatModel s : seatModels) {
-            if(s.getSeatNumber() == seatModel.getSeatNumber()) {
+            if (s.getSeatNumber() == seatModel.getSeatNumber()) {
                 index = seatModels.indexOf(s);
                 break;
             }
         }
 
-        if(index != null) {
+        if (index != null) {
             seatModels.remove(index.intValue());
         } else {
             logger.error("Seat doesn't exist in seats!");
@@ -133,10 +134,12 @@ public class TableModel {
 
     @JsonIgnore
     public List<SeatModel> getCalculatedGameSeats() {
+        //TODO мб сделать, чтобы тут ничего не изменялось, а просто передавались места
         List<SeatModel> calculatedGameSeatModels = new CopyOnWriteArrayList<>();
         for (SeatModel seatModel : seatModels) {
             if (seatModel.getCurrentBet().compareTo(BigDecimal.ZERO) > 0) {
                 calculatedGameSeatModels.add(seatModel);
+                seatModel.setInTheGame(true);
             }
         }
         calculatedGameSeatModels.sort(Comparator.comparing(SeatModel::getSeatNumber));
@@ -146,10 +149,50 @@ public class TableModel {
 
     @JsonIgnore
     public List<SeatModel> getAndSetGameSeats() {
+        //TODO мб сделать, чтобы тут ничего не изменялось, а просто передавались места
+        //at first - get seat and then players!
         gameSeatModels = getCalculatedGameSeats();
 
         return gameSeatModels;
     }
+
+    /*    public List<PlayerModel> getPlayersInGame() {
+            List<PlayerModel> playersInGame = new ArrayList<>();
+
+            for (SeatModel s : gameSeatModels) {
+                for (PlayerModel p : players) {
+                    if (p.getUserId().equals(s.getPlayerId())) {
+                        p.setInTheGame(true);
+                        playersInGame.add(p);
+                        break;
+                    }
+                }
+            }
+
+            return playersInGame;
+        }*/
+    public List<PlayerModel> markAndGetPlayersInGame() {
+        //at first - get seat and then players!
+        Map<UUID, PlayerModel> playerMap = players.stream()
+                .collect(Collectors.toMap(PlayerModel::getUserId, p -> p));
+
+        List<PlayerModel> playersInGame = new ArrayList<>();
+
+        for (SeatModel seat : gameSeatModels) {
+            PlayerModel player = playerMap.get(seat.getPlayerId());
+            if (player != null) {
+                player.setInTheGame(true);
+                if (!playersInGame.contains(player)) {
+                    playersInGame.add(player);
+                }
+            }
+        }
+
+        return playersInGame;
+    }
+
+
+
     /*    @JsonIgnore
         public List<Seat> getAndSetGameSeats() {
             gameSeats = new CopyOnWriteArrayList<>();
@@ -167,8 +210,8 @@ public class TableModel {
     @JsonIgnore
     public boolean isThereSeatWithBetForPlayer(UUID playerUUID) {
         for (SeatModel seatModel : seatModels) {
-//            if (seat.getUserUUID().equals(userUUID) && seat.getCurrentBet() > 0) {
-            if (seatModel.getPlayerUUID().equals(playerUUID) && seatModel.getCurrentBet().compareTo(BigDecimal.ZERO) > 0) {
+//            if (seat.getUserId().equals(userId) && seat.getCurrentBet() > 0) {
+            if (seatModel.getPlayerId().equals(playerUUID) && seatModel.getCurrentBet().compareTo(BigDecimal.ZERO) > 0) {
                 return true;
             }
         }
@@ -178,7 +221,7 @@ public class TableModel {
     @JsonIgnore
     public boolean isThereSeatForPlayer(UUID playerUUID) {
         for (SeatModel seatModel : seatModels) {
-            if (seatModel.getPlayerUUID().equals(playerUUID)) {
+            if (seatModel.getPlayerId().equals(playerUUID)) {
                 return true;
             }
         }
@@ -191,7 +234,7 @@ public class TableModel {
             int index = -1;
 
             for (SeatModel seatModel : seatModels) {
-                if (seatModel.getPlayerUUID().equals(player.getPlayerUUID())) {
+                if (seatModel.getPlayerId().equals(player.getUserId())) {
                     index = seatModels.indexOf(seatModel);
                     break;
                 }
@@ -202,6 +245,7 @@ public class TableModel {
             } else System.err.println("There is no such seats");
         }
     }
+
     public SeatModel getSeatByNumber(int seatNumber) {
         for (SeatModel seatModel : seatModels) {
             if (seatModel.getSeatNumber() == seatNumber) {

@@ -1,5 +1,6 @@
 package com.evofun.gameservice.websocket.exception;
 
+import com.evofun.gameservice.common.error.ErrorPrefix;
 import com.evofun.gameservice.common.error.ExceptionUtils;
 import lombok.Getter;
 import lombok.ToString;
@@ -12,7 +13,7 @@ public class GameValidationException extends RuntimeException {
     private final String developerMessage;
 
     public GameValidationException(String userMessage, String developerMessage) {
-        this(userMessage, developerMessage, ExceptionUtils.generateErrorId("VAL"));
+        this(userMessage, developerMessage, ExceptionUtils.generateErrorId(ErrorPrefix.VAL));
     }
 
     private GameValidationException(String userMessage, String developerMessage, String code) {

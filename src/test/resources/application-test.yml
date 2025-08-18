@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+game-service:
+  base-url: http://localhost:8081
+
+money-service:
+  base-url: http://localhost:8082
+  money-url: http://localhost:8082
+
+# НОВОЕ — под то, что просит InternalGameController
+game:
+  ws-base-url: ws://localhost:8080/ws    # поставь любой тестовый URL

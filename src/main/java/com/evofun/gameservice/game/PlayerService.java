@@ -25,19 +25,19 @@ public class PlayerService {
     }
 
     public void addSeat(SeatModel seatModel) throws GameSystemException {
-        PlayerModel playerModel = playerRegistry.findPlayerByUUID(seatModel.getPlayerUUID());
+        PlayerModel playerModel = playerRegistry.findPlayerById(seatModel.getPlayerId());
         if (playerModel == null) {
-            throw new GameSystemException("Player not found in playerRegistry during seat adding (userUUID = " + seatModel.getPlayerUUID() + ")");
+            throw new GameSystemException("Player not found in playerRegistry during seat adding (userId = " + seatModel.getPlayerId() + ")");
         }
         playerModel.addSeat(seatModel);
-        messageSenderImpl.sendToClient(seatModel.getPlayerUUID(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel), WsMessageType.PLAYER_DATA));
+        messageSenderImpl.sendToClient(seatModel.getPlayerId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel), WsMessageType.PLAYER_DATA));
     }
 
     public PlayerModel removeSeatAndRefund(SeatModel seatModel) throws GameSystemException {
-        PlayerModel playerModel = getPlayerByUUIDOrThrow(seatModel.getPlayerUUID());
+        PlayerModel playerModel = getPlayerByUUIDOrThrow(seatModel.getPlayerId());
         SeatModel seatModelOfPlayer = findSeatOfPlayerOrThrow(playerModel, seatModel);
 
-        playerModel.getUserModel().changeBalance(seatModelOfPlayer.getCurrentBet());
+        playerModel.changeBalance(seatModelOfPlayer.getCurrentBet());
         playerModel.getSeatModels().remove(seatModelOfPlayer);
 
         return playerModel;
@@ -51,27 +51,27 @@ public class PlayerService {
     }
 
     public PlayerModel getPlayerByUUIDOrThrow(UUID playerUUID) throws GameSystemException {
-        PlayerModel playerModel = playerRegistry.findPlayerByUUID(playerUUID);
+        PlayerModel playerModel = playerRegistry.findPlayerById(playerUUID);
         if (playerModel == null) {
-            throw new GameSystemException("Player not found in playerRegistry (userUUID = " + playerUUID + ")");
+            throw new GameSystemException("Player not found in playerRegistry (userId = " + playerUUID + ")");
         }
         return playerModel;
     }
 
     public PlayerModel replaceSeatAndUpdateBetInPlayer(SeatModel seatModel) throws GameSystemException {//TODO not sure that it work correctly...
-        PlayerModel playerModel = getPlayerByUUIDOrThrow(seatModel.getPlayerUUID());
+        PlayerModel playerModel = getPlayerByUUIDOrThrow(seatModel.getPlayerId());
         SeatModel oldSeatModel = findSeatOfPlayerOrThrow(playerModel, seatModel);
 
         int seatIndex = playerModel.getSeatModels().indexOf(oldSeatModel);
         if (seatIndex == -1) {
-            throw new GameSystemException("Seat to replace not found in player's seat list (userUUID=" + playerModel.getPlayerUUID() + ")");
+            throw new GameSystemException("Seat to replace not found in player's seat list (userId=" + playerModel.getUserId() + ")");
         }
 
         BigDecimal oldBet = oldSeatModel.getCurrentBet();
         BigDecimal newBet = seatModel.getCurrentBet();
 
         playerModel.getSeatModels().set(seatIndex, seatModel);
-        playerModel.getUserModel().changeBalance(newBet.subtract(oldBet).negate());
+        playerModel.changeBalance(newBet.subtract(oldBet).negate());
 
         return playerModel;
     }

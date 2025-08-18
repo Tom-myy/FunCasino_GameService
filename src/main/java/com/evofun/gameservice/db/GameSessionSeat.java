@@ -1,5 +1,6 @@
 package com.evofun.gameservice.db;
 
+import com.evofun.gameservice.game.IRoundResult;
 import com.evofun.gameservice.game.RoundResult;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -10,10 +11,10 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 @Entity
-@Table(name = "seat_in_game")
-public class SeatInGame {
+@Table(name = "game_session_seats")
+public class GameSessionSeat {
     @Id
-    @Column(name = "seat_in_game_id", updatable = false, nullable = false)
+    @Column(name = "game_session_seat_id", updatable = false, nullable = false)
     private UUID id;
 
     @Column(name = "game_session_id", updatable = false, nullable = false)
@@ -41,7 +42,7 @@ public class SeatInGame {
         }
     }
 
-    public SeatInGame(UUID gameSessionId, int seatNumber, UUID userId, RoundResult roundResult, BigDecimal bet/*, BigDecimal profit*/) {
+    public GameSessionSeat(UUID gameSessionId, int seatNumber, UUID userId, IRoundResult roundResult, BigDecimal bet/*, BigDecimal profit*/) {
         this.gameSessionId = gameSessionId;
         this.seatNumber = seatNumber;
         this.userId = userId;

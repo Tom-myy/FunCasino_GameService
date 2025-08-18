@@ -7,8 +7,7 @@ import java.util.List;
 
 @Getter
 public class AlreadyExistsException extends RuntimeException {
-    private final List<
-            FieldErrorDto> errors;
+    private final List<FieldErrorDto> errors;
     public AlreadyExistsException(/*String message, */List<FieldErrorDto> errors) {
 //        super(message);
         this.errors = errors;
