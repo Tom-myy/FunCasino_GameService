@@ -17,14 +17,17 @@ public class PlayerModel {
     @Getter
     @Setter
     private String nickname;
-    @Getter
-    @Setter
-    private BigDecimal balance;
+    /*    @Getter
+        @Setter
+        private BigDecimal balance;*/
     //TODO mb delete
-    @JsonIgnore
+/*    @JsonIgnore
     @Getter
     @Setter
-    private BigDecimal balanceDelta = BigDecimal.ZERO;
+    private BigDecimal balanceDelta = BigDecimal.ZERO;*/
+    @Getter
+    @Setter
+    private BigDecimal gameProfit = BigDecimal.ZERO;
 
     @Getter
     private List<SeatModel> seatModels = new ArrayList<>();
@@ -39,17 +42,21 @@ public class PlayerModel {
     @Setter
     private boolean wantsToStartGame = false;
 
-    public void resetBalanceDifference() {
+/*    public void resetBalanceDifference() {
         setBalanceDelta(BigDecimal.ZERO);
-    }
+    }*/
 
     public void addSeat(SeatModel seatModel) {
         seatModels.add(seatModel);
     }
 
-    public void changeBalance(BigDecimal amount) {
+/*    public void changeBalance(BigDecimal amount) {
         this.balance = balance.add(amount);
         balanceDelta = balanceDelta.add(amount);
+    }*/
+
+    public void changeGameProfit(BigDecimal amount) {
+        this.gameProfit = gameProfit.add(amount);
     }
 
     public BigDecimal getTotalBet() {
@@ -73,7 +80,7 @@ public class PlayerModel {
     public void restartAfterGame() {
         inTheGame = false;
         wantsToStartGame = false;
-        setBalanceDelta(BigDecimal.ZERO);
+        setGameProfit(BigDecimal.ZERO);
 
         seatModels.stream()
                 .filter(SeatModel::isInTheGame)

@@ -17,9 +17,8 @@ import java.util.UUID;
 public class PlayerInternalDto {
     private UUID userId;
     private String nickname;
-    private BigDecimal balance;
+    private BigDecimal gameProfit;
     //internal:
-    private BigDecimal balanceDelta;
     private List<SeatDto> seatsDto = new ArrayList<>();
     private boolean inTheGame = false;
 }

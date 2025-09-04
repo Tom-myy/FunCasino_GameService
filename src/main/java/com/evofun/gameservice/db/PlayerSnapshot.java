@@ -13,8 +13,7 @@ import java.util.UUID;
 public class PlayerSnapshot {
     private UUID userId;
     private String nickname;
-    private BigDecimal balance;
-    private BigDecimal balanceDelta;
+    private BigDecimal gameProfit;
     List<SeatSnapshot> seats;
     boolean inTheGame;
 }

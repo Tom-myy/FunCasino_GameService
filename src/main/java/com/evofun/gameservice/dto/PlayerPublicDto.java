@@ -16,7 +16,6 @@ import java.util.UUID;
 @NoArgsConstructor
 public class PlayerPublicDto {
     private String nickname;
-    private BigDecimal balance;
     private List<SeatDto> seatsDto = new ArrayList<>();
     private boolean inTheGame = false;
 }

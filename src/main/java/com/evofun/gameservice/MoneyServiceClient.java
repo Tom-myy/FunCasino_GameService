@@ -1,6 +1,7 @@
 package com.evofun.gameservice;
 
 import com.evofun.gameservice.db.UserGameBalanceDto;
+import com.evofun.gameservice.dto.request.BetCancelRequest;
 import com.evofun.gameservice.dto.request.MoneyReservationRequest;
 import com.evofun.gameservice.exception.ServiceUnavailable;
 import com.evofun.gameservice.exception.UserNotFoundException;
@@ -93,6 +94,31 @@ public class MoneyServiceClient {
                 return false;
             }
             throw e;
+        }
+    }
+
+    public void cancelBet(UUID userId, BigDecimal bet) {
+        if (!isMoneyServiceAlive()) {
+            throw new ServiceUnavailable(
+                    "Money service is unavailable.",
+                    "Some service is temporarily unavailable on the service."
+            );
+        }
+
+        BetCancelRequest betCancelRequest = new BetCancelRequest(userId, bet);
+
+        WebClient client = WebClient.create(baseMoneyServiceUrl);
+
+        try {
+            client.post()
+                    .uri("/api/internal/cancelBet")
+                    .bodyValue(betCancelRequest)
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 }

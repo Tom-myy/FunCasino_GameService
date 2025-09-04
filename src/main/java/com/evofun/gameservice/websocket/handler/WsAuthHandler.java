@@ -61,7 +61,7 @@ public class WsAuthHandler {
         UserGameBalanceDto userGameBalanceDto = moneyServiceClient.getGameBalanceByUserId(jwtUser.getUserId());//TODO
 
         PlayerModel playerModel = authService.processLogin(wsClient, jwtUser);
-        playerModel.setBalance(userGameBalanceDto.getBalance());
+//        playerModel.setBalance(userGameBalanceDto.getBalance());
         messageSenderImpl.sendToClient(wsClient, new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel), WsMessageType.AUTHORIZATION));
 
         wsClient.setReadyToGetMessages(true);

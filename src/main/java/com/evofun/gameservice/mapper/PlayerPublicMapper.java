@@ -9,7 +9,6 @@ public class PlayerPublicMapper {
         PlayerPublicDto playerPublicDto = new PlayerPublicDto();
 
         playerPublicDto.setNickname(playerModel.getNickname());
-        playerPublicDto.setBalance(playerModel.getBalance());
         playerPublicDto.setSeatsDto(SeatMapper.toDtoList(playerModel.getSeatModels()));
         playerPublicDto.setInTheGame(playerModel.isInTheGame());
 

@@ -1,8 +1,9 @@
 package com.evofun.gameservice.websocket.handler;
 
 import com.evofun.gameservice.MoneyServiceClient;
+import com.evofun.gameservice.common.error.ErrorCode;
+import com.evofun.gameservice.common.error.ErrorDto;
 import com.evofun.gameservice.dto.request.GameDecisionRequestDto;
-import com.evofun.gameservice.exception.NotEnoughBalanceException;
 import com.evofun.gameservice.game.GameDecision;
 import com.evofun.gameservice.game.service.GameService;
 import com.evofun.gameservice.game.service.TableService;
@@ -52,9 +53,9 @@ public class WsGameHandler {
             throw new GameValidationException("Game was not started, so 'Game Decisions' are not available.", "'GAME_DECISION' was received from ("+ wsClient.getPlayerUUID()+"), but game was not started.");
         }
 
-        SeatModel seat = tableService.getTurnOfSeat();
+        SeatModel turnOfSeat = tableService.getTurnOfSeat();
 
-        if(!seat.getPlayerId().equals(wsClient.getPlayerUUID())) {
+        if(!turnOfSeat.getPlayerId().equals(wsClient.getPlayerUUID())) {
             throw new GameValidationException("This is not your turn!", "Player tried to make decision, but it wasn't his turn.");
         }
 
@@ -64,18 +65,18 @@ public class WsGameHandler {
 
         GameDecision gameDecision = dto.getGameDecision();
 
-        if(gameDecision == GameDecision.DOUBLE_DOWN) {
-            if(!moneyServiceClient.reserveMoneyForBet(wsClient.getPlayerUUID(),  seat.getCurrentBet())) {
-                messageSenderImpl.sendToClient(seat.getPlayerId(),
+        if(gameDecision == GameDecision.DOUBLE_DOWN && turnOfSeat.getLastGameDecision() == null) {
+            if(!moneyServiceClient.reserveMoneyForBet(wsClient.getPlayerUUID(),  turnOfSeat.getCurrentBet())) {
+                messageSenderImpl.sendToClient(turnOfSeat.getPlayerId(),
                         new WsMessage<>(
-                                "You don't have enough money for DOUBLE_DOWN decision.",
+                                new ErrorDto(ErrorCode.GAME_RULE_VIOLATION, null, "You don't have enough money for DOUBLE_DOWN decision.", null),
                                 WsMessageType.ERROR
                         ));
 
                 return;
             }
 
-            tableService.doubleDownBet();//TODO mb to do smth here
+            tableService.doubleDownBet();
         }
         
         gameService.setDecisionField(gameDecision);

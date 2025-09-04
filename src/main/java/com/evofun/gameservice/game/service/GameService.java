@@ -19,8 +19,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -124,14 +126,15 @@ public class GameService {
             return;
         }
 
-        for (PlayerSnapshot playerSnapshot : playerModels) {
-            GameFinishedEvent gameFinishedEvent = new GameFinishedEvent(
-                    playerSnapshot.getUserId(),
-                    playerSnapshot.getBalanceDelta(),
-                    "GAME",//TODO enum
-                    null);
+        for (PlayerSnapshot playerSnapshot : playerModels) {///if a player doesn't have profit (he lost) - do nothing
+            if(!Objects.equals(playerSnapshot.getGameProfit(), BigDecimal.ZERO)) {
+                GameFinishedEvent gameFinishedEvent = new GameFinishedEvent(
+                        playerSnapshot.getUserId(),
+                        playerSnapshot.getGameProfit()
+                );
 
-            kafkaProducer.sendGameFinishedEvent(gameFinishedEvent);
+                kafkaProducer.sendGameFinishedEvent(gameFinishedEvent);
+            }
         }
 
 /*        List<PlayerModel> updated = userService.updateUsersAfterGame(playerModels);

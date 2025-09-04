@@ -1,7 +1,6 @@
 package com.evofun.gameservice.websocket.handler;
 
 import com.evofun.gameservice.MoneyServiceClient;
-import com.evofun.gameservice.db.UserGameBalanceDto;
 import com.evofun.gameservice.exception.NotEnoughBalanceException;
 import com.evofun.gameservice.game.PlayerModel;
 import com.evofun.gameservice.game.PlayerService;
@@ -22,6 +21,8 @@ import com.evofun.gameservice.websocket.message.WsMessageType;
 import com.evofun.gameservice.websocket.connection.WsClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
 
 @Component
 public class WsSeatHandler {
@@ -58,7 +59,6 @@ public class WsSeatHandler {
 
         tableService.addSeat(seatModel);
         playerService.addSeat(seatModel);
-//        messageSenderImpl.sendToClient(seat.getUserId(), new WsMessage<>(PlayerMapper.toDto(player)/*player*/, WsMessageType.PLAYER_DATA));//TODO is this necessary?
 
         messageSenderImpl.broadcast(new WsMessage<>(SeatMapper.toDtoList(tableService.getSeats()), WsMessageType.SEATS));
 
@@ -81,10 +81,21 @@ public class WsSeatHandler {
         SeatDto seatDto = new SeatDto(wsClient.getPlayerUUID(), dto.getSeatNumber());
         SeatModel seatModel = SeatMapper.toModel(seatDto);
 
-        PlayerModel playerModel = playerService.removeSeatAndRefund(seatModel);
+        SeatModel oldSeat = null;
+        for(SeatModel seat: tableService.getSeats()){
+            if (seat.getSeatNumber() == dto.getSeatNumber()) {
+                oldSeat = seat;
+                break;
+            }
+        }
+
+        if (!oldSeat.getCurrentBet().equals(BigDecimal.ZERO)) {
+            moneyServiceClient.cancelBet(wsClient.getPlayerUUID(), oldSeat.getCurrentBet());
+        }
+        PlayerModel playerModel = playerService.removeSeat(seatModel);
         tableService.removeSeat(seatModel);
         //TODO not sure that i need to send 'PLAYER_DATA' to player.. if need - mb send it in 'handleTakeSeat':
-        messageSenderImpl.sendToClient(seatModel.getPlayerId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel)/*player*/, WsMessageType.PLAYER_DATA));//TODO playerDTO
+        messageSenderImpl.sendToClient(seatModel.getPlayerId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel), WsMessageType.PLAYER_DATA));
 
         tableService.sendPhaseUpdateToPlayer(seatDto);
 
@@ -112,7 +123,7 @@ public class WsSeatHandler {
         tableService.replaceSeatAndUpdateBetAtTheTable(seatModel);
         PlayerModel playerModel = playerService.replaceSeatAndUpdateBetInPlayer(seatModel);
         //TODO not sure that i need to send 'PLAYER_DATA' to player.. if need - mb send it in 'handleTakeSeat':
-        messageSenderImpl.sendToClient(seatModel.getPlayerId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel)/*player*/, WsMessageType.PLAYER_DATA));//TODO playerDTO
+        messageSenderImpl.sendToClient(seatModel.getPlayerId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel), WsMessageType.PLAYER_DATA));
 
         gameService.tryStartBettingTime();
 

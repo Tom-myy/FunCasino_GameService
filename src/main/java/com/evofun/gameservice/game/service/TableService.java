@@ -15,7 +15,6 @@ import com.evofun.gameservice.websocket.message.WsMessageType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +37,7 @@ public class TableService {
     }
 
     TableModel getTable() {
-        //package-private - only for 'service' package, exactly - for GameService
+        ///package-private - only for 'service' package, exactly - for GameService
         return tableModel;
     }
 
@@ -87,7 +86,6 @@ public class TableService {
             messageSenderImpl.sendToClient(seat.getPlayerUUID(), new WsMessage<>(GamePhaseUI.EMPTY_TABLE, WsMessageType.E_GAME_STATUS_FOR_INTERFACE));
     }
 
-
     public void replaceSeatAndUpdateBetAtTheTable(SeatModel seatModelForBetUpdating) throws GameSystemException {
         List<SeatModel> seatModels = tableModel.getSeatModels();
 
@@ -101,11 +99,10 @@ public class TableService {
         throw new GameSystemException("Seat wasn't changed. No matching seat found at the table");
     }
 
-    //TODO it's mot correct to leave it here
-    public void doubleDownBet(){//TODO mb to do smth here
+    public void doubleDownBet(){
         SeatModel seatModel = tableModel.getTurnOfSeat();
 
-
+        seatModel.setCurrentBet(seatModel.getCurrentBet().multiply(BigDecimal.TWO));
     }
 
     public List<SeatModel> getCalculatedGameSeats() {
@@ -131,14 +128,6 @@ public class TableService {
         }
         return false;
     }
-
-/*    public boolean isSeatOwnedByPlayer(UUID userId) {
-        for (Seat seat : getTable().getSeats()) {
-            if (userId.equals(seat.getUserId()))
-                return true;
-        }
-        return false;
-    }*/
 
     public boolean isSeatOwnedByPlayer(UUID playerUUID, int seatNumber) {
         SeatModel seatModel = tableModel.getSeatByNumber(seatNumber);

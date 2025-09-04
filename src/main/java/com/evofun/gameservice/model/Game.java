@@ -1,10 +1,11 @@
 package com.evofun.gameservice.model;
 
 import com.evofun.gameservice.MoneyServiceClient;
+import com.evofun.gameservice.common.error.ErrorCode;
+import com.evofun.gameservice.common.error.ErrorDto;
 import com.evofun.gameservice.db.GameResultSnapshot;
 import com.evofun.gameservice.db.PlayerSnapshot;
 import com.evofun.gameservice.db.SeatSnapshot;
-import com.evofun.gameservice.exception.NotEnoughBalanceException;
 import com.evofun.gameservice.game.*;
 import com.evofun.gameservice.mapper.DealerMapper;
 import com.evofun.gameservice.mapper.PlayerPublicMapper;
@@ -21,8 +22,8 @@ import lombok.Getter;
 import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -109,13 +110,6 @@ public class Game {
 
         timerService.stop(TimerType.BETTING_TIME);
 
-//        gameSeatModels = tableModel.getAndSetGameSeats();
-
-        //DEBUG
-        for (PlayerModel player : gamePlayers) {
-            System.err.println("-------"+player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
-        }
-
         preparePlayersAndSeatsForGame();
         for(PlayerModel player: gamePlayers) {
             messageSenderImpl.sendToClient(
@@ -132,27 +126,9 @@ public class Game {
             s.printMoneyInfo();
         }
 
-/*        for (SeatModel s : gameSeatModels) {
-            s.setInTheGame(true);
-            for (PlayerModel p : gamePlayers) {
-                if (p.getUserId().equals(s.getPlayerId())) {
-                    p.setInTheGame(true);
-                    p.setBalanceDelta(BigDecimal.ZERO);
-
-                    messageSenderImpl.sendToClient(p.getUserId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(p), WsMessageType.PLAYER_DATA));
-                    break;
-                }
-            }
-        }*/
-
-        //DEBUG
-        for (PlayerModel player : gamePlayers) {
-            System.err.println("-------"+player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
-        }
-
         tableModel.setDealerModel(new DealerModel());
         dealerModel = tableModel.getDealerModel();
-        messageSenderImpl.broadcast(new WsMessage<>(/*gameSeats*/TableMapper.toDto(tableModel), WsMessageType.GAME_STARTED/*TABLE_STATUS*/));//mb send after resetGameResultStatus
+        messageSenderImpl.broadcast(new WsMessage<>(TableMapper.toDto(tableModel), WsMessageType.GAME_STARTED));//mb send after resetGameResultStatus
         messageSenderImpl.broadcast(new WsMessage<>(DealerMapper.toDto(dealerModel), WsMessageType.DEALER));//TODO mb not to send the dealer (//mb send after resetGameResultStatus)
 
         if (gameDeck == null) {
@@ -224,11 +200,6 @@ public class Game {
             }
         }
         changeGameStatusForInterface(GamePhaseUI.CARDS_WERE_DEALT);
-
-        //DEBUG
-        for (PlayerModel player : gamePlayers) {
-            System.err.println("-------"+player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
-        }
 
         changeGameStatusForInterface(GamePhaseUI.DECISION_TIME);
 
@@ -304,6 +275,9 @@ public class Game {
                                     messageSenderImpl.broadcast(new WsMessage<>(seatDto, WsMessageType.GAME_SEAT_UPDATED));
 
                                     break;
+                                } else if (nextGameDecision.equals(GameDecision.DOUBLE_DOWN)) {
+                                    ErrorDto errorDto = new ErrorDto(ErrorCode.GAME_RULE_VIOLATION, null, "You can not DOUBLE DOWN now, choose other option!", null);
+                                    messageSenderImpl.sendToClient(curSeat.getPlayerId(), new WsMessage<>(errorDto, WsMessageType.ERROR));
                                 }
                             } while (!isValidNextDecision(nextGameDecision));
                         } else if (curSeat.getMainScore() == 21) {
@@ -319,7 +293,6 @@ public class Game {
                     break;
 
                 } else if (firstGameDecision.equals(GameDecision.DOUBLE_DOWN)) {
-
                     //money
                     PlayerModel curPlayer = null;
                     for (PlayerModel player : gamePlayers) {
@@ -332,8 +305,6 @@ public class Game {
                         logger.error("curPlayer is null");
                         return null;
                     }
-
-                    curPlayer.changeBalance(curSeat.getCurrentBet().negate());//TODO move to appropriate place
 
                     SeatModel tmpSeatModel = null;
                     int tmpInd = -1;
@@ -351,8 +322,7 @@ public class Game {
 
                     curPlayer.getSeatModels().set(tmpInd, curSeat);
 
-                    curSeat.setCurrentBet(curSeat.getCurrentBet().multiply(BigDecimal.valueOf(2)));
-                    playersBroadcast();//TODO think here, coz in fact i dont need broadcast (i change only one Player)
+//       TODO - MB don't need!!!              playersBroadcast();//TODO think here, coz in fact i dont need broadcast (i change only one Player)
 
                     curSeat.setLastGameDecision(firstGameDecision);
                     System.out.println(curSeat.getPlayerId() + " decided to " + firstGameDecision);
@@ -367,7 +337,6 @@ public class Game {
                     System.out.println(firstGameDecision + " for " + curSeat.getPlayerId());
                     System.out.println(cardModel.getInitial() + " of " + cardModel.getSuit() + " was " +
                             "dealt to '" + curSeat.getPlayerId() + "'");
-
 
                     if (curSeat.getMainScore() < 21) {
                         System.out.println(curSeat.getPlayerId() + " has " + curSeat.getMainScore());
@@ -478,11 +447,6 @@ public class Game {
             }
         }
 
-        //DEBUG
-        for (PlayerModel player : gamePlayers) {
-            System.err.println("-------"+player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
-        }
-
         changeGameStatusForInterface(GamePhaseUI.DEALER_DECISION);
 
         try {
@@ -529,10 +493,6 @@ public class Game {
             }
         } else {
             //TODO mb to do smth
-        }
-        //DEBUG
-        for (PlayerModel player : gamePlayers) {
-            System.err.println("-------"+player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
         }
 
         {//this block of code is for dealer's turn (after playersInGameSession)...
@@ -591,8 +551,6 @@ public class Game {
                         .forEach(p -> p.setRoundResult(FinalRoundResult.WIN));
             }
 
-
-
             //check dealer's score - more than 21 (too many)
             if (dealerModel.getScore() > 21) {
                 System.out.println(dealerModel.getNickName() + " has TOO MANY (" + dealerModel.getScore() + ")");
@@ -605,10 +563,6 @@ public class Game {
                                 p.getRoundResult() == ProgressRoundResult.STAND)
                         .forEach(p -> p.setRoundResult(FinalRoundResult.WIN));
             }
-        }
-        //DEBUG
-        for (PlayerModel player : gamePlayers) {
-            System.err.println("-------"+player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
         }
 
         //output the dealer's game results to the console
@@ -654,8 +608,7 @@ public class Game {
                 .map(player -> new PlayerSnapshot(
                         player.getUserId(),
                         player.getNickname(),
-                        player.getBalance(),
-                        player.getBalanceDelta(),
+                        player.getGameProfit(),
                         player.getSeatModels().stream()
                                 .filter(SeatModel::isInTheGame)
                                 .map(seat -> new SeatSnapshot(
@@ -674,21 +627,9 @@ public class Game {
 
         GameResultSnapshot gameResultSnapshot = new GameResultSnapshot(playerSnapshots, dealerModel.getScore());
 
-        System.err.println("3333333333333"+playerSnapshots.get(0).getSeats().get(0).getRoundResult());
-        System.err.println("33333333"+playerSnapshots.size());
-        System.err.println("3333"+playerSnapshots.get(0).getSeats().size());
-
-//     /   for (PlayerModel p : gamePlayers) {
-//            for (SeatModel s : p.getSeatModels()) {
-//                s.restartAfterGame();
-//            }
-//            p.setWantsToStartGame(false);
-//        }
-
         clearPlayersAndSeatsAfterGame();
 
         playersBroadcast();//need because of s.restartAfterGame() for every player
-//      /  gameSeatModels = null;
 
         //reset dealer's game data
         dealerModel.fullSeatReset();
@@ -703,10 +644,6 @@ public class Game {
         }
 
         clearGameDataAfterGame();
-/*      /  for (PlayerModel p : gamePlayers) {
-            p.setInTheGame(false);
-            messageSenderImpl.sendToClient(p.getUserId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(p), WsMessageType.PLAYER_DATA));
-        }*/ //unless
 
         tableModel.setDealerModel(null);//мб необязательно
 
@@ -721,9 +658,6 @@ public class Game {
         tableModel.setGame(false);
         isGameRunning = false;
 
-        System.err.println("444444444444444"+playerSnapshots.get(0).getSeats().get(0).getRoundResult());
-        System.err.println("444444444"+playerSnapshots.size());
-        System.err.println("4444"+playerSnapshots.get(0).getSeats().size());
         return gameResultSnapshot;
     }
 
@@ -753,39 +687,27 @@ public class Game {
                 throw new BlackjackException("Player not found in game during money distributing.");
 
             if (result == FinalRoundResult.CASH_OUT) {
-//                curPlayer.changeBalance(seat.getCurrentBet() / 2);
-                curPlayer.changeBalance(seatModel.getCurrentBet().divide(BigDecimal.valueOf(2)));
-//                curPlayer.setBalanceDelta(curPlayer.getBalance());
-            }
-
-            if (result == FinalRoundResult.LOSE) {
-                //dealer.changeAmountOfMoney(seat.getCurrentBet()); //this is just for fun
-            }
-
-            if (result == FinalRoundResult.LOSE) {
-                //dealer.changeAmountOfMoney(seat.getCurrentBet()); //this is just for fun
+                curPlayer.changeGameProfit(seatModel.getCurrentBet().divide(BigDecimal.valueOf(2), RoundingMode.HALF_UP));
             }
 
             if (result == FinalRoundResult.WIN) {
-//                curPlayer.changeBalance(seat.getCurrentBet() * 2);
-                curPlayer.changeBalance(seatModel.getCurrentBet().multiply(BigDecimal.valueOf(2)));
+                curPlayer.changeGameProfit(seatModel.getCurrentBet().multiply(BigDecimal.valueOf(2)));
 
             }
 
             if (result == FinalRoundResult.BLACKJACK) {
-//                curPlayer.changeBalance((int) (seat.getCurrentBet() * 2.5));//in general x1.5, but here is 2.5
-                curPlayer.changeBalance(seatModel.getCurrentBet().multiply(BigDecimal.valueOf(2.5)));
+                curPlayer.changeGameProfit(seatModel.getCurrentBet().multiply(BigDecimal.valueOf(2.5)));
             }
 
             if (result == FinalRoundResult.PUSH) {
-                curPlayer.changeBalance(seatModel.getCurrentBet());
+                curPlayer.changeGameProfit(seatModel.getCurrentBet());
             }
         }
 
         playersBroadcast();//if im not wrong - its for sending of results at the end of the game
 
         for (PlayerModel player : gamePlayers) {
-            System.err.println(player.getUserId() + " - balance - " + player.getBalance() + " delta - " + player.getBalanceDelta());
+            System.err.println(player.getUserId() + " - gameProfit: " + player.getGameProfit());
         }
     }
 
@@ -794,20 +716,7 @@ public class Game {
         messageSenderImpl.broadcast(new WsMessage<>(SeatMapper.toDto(seatModel), WsMessageType.CURRENT_SEAT));
 
         tableModel.setTurnOfSeat(seatModel);
-//        timerForDecision = new MyTimer();//TODO mb initialise not here...
 
-/*        new Thread(() -> {
-//            timer.startTimer(TIME_FOR_DECISION);
-            timerService.start(TimerType.DECISION_TIME, 15, );
-
-        }).start();*/
-/*        timerService.start(TimerType.DECISION_TIME, TIME_FOR_DECISION, time -> {
-            messageSender.broadcast(new MyPackage<>(time, EMessageType.TIMER));
-
-            if (time == 0 && decisionField == null) {
-                decisionField = basicDecision(seat);
-            }
-        });*/
         timerService.start(TimerType.DECISION_TIME, /*TIME_FOR_DECISION,*/ decisionTimeObserver);
 
         try {//it's necessarily because of thread...
@@ -824,14 +733,13 @@ public class Game {
                 throw new RuntimeException(e);
             }
         }
-//        System.out.println("AFTER empty while (waiting for a decision)");
 
-        if (gameDecisionField != null /*&& timerForDecision.isRunning()*/) {
+        if (gameDecisionField != null) {
             System.out.println("Decision was made on time");
             return getGameDecisionField();
         }
 
-        if (gameDecisionField == null /*&& !timerForDecision.isRunning()*/) {
+        if (gameDecisionField == null) {
             GameDecision gameDecision = basicDecision(seatModel);
             logger.info("decisionField == null and timer is over -> basicDecision - " + gameDecision);
             return gameDecision;
@@ -844,10 +752,8 @@ public class Game {
         if (seatModel.getMainScore() > 11) {
             seatModel.setRoundResult(ProgressRoundResult.STAND);
             return GameDecision.STAND;
-//            seat.setCurrentDecision(EDecision.STAND);
         } else {
             return GameDecision.HIT;
-//            seat.setCurrentDecision(EDecision.HIT);
         }
     }
 
@@ -888,7 +794,7 @@ public class Game {
         gamePlayers = null;
     }
 
-    private void restartPlayerAndSeatInfoBeforeGame(){
+    private void restartPlayerAndSeatInfoBeforeGame() {
         gameDecisionField = null;
 
         gamePlayers.stream()
@@ -896,7 +802,7 @@ public class Game {
                 .forEach(PlayerModel::restartBeforeGame);
     }
 
-    private void restartPlayerAndSeatInfoAfterGame(){
+    private void restartPlayerAndSeatInfoAfterGame() {
         gameDecisionField = null;
 
         gamePlayers.stream()

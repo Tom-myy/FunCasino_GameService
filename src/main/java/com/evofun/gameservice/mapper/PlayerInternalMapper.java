@@ -9,8 +9,7 @@ public class PlayerInternalMapper {
 
         playerInternalDto.setUserId(playerModel.getUserId());
         playerInternalDto.setNickname(playerModel.getNickname());
-        playerInternalDto.setBalance(playerModel.getBalance());
-        playerInternalDto.setBalanceDelta(playerModel.getBalanceDelta());
+        playerInternalDto.setGameProfit(playerModel.getGameProfit());
         playerInternalDto.setSeatsDto(SeatMapper.toDtoList(playerModel.getSeatModels()));
         playerInternalDto.setInTheGame(playerModel.isInTheGame());
 

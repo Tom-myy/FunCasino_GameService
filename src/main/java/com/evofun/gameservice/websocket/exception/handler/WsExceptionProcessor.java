@@ -144,7 +144,7 @@ public class WsExceptionProcessor {
         } else {
             String unknownCode = ExceptionUtils.generateErrorId(ErrorPrefix.UNKNOWN);
             String unknownUserMessage = "Some system error on the server. " +
-                    "Try again later or contact support. ERROR-CODE: " + unknownCode;
+                    "Try again later or contact support.";
 
             ErrorDto errorDto = new ErrorDto(ErrorCode.UNKNOWN_ERROR, unknownCode, unknownUserMessage, null);
 

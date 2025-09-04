@@ -33,11 +33,11 @@ public class PlayerService {
         messageSenderImpl.sendToClient(seatModel.getPlayerId(), new WsMessage<>(PlayerPublicMapper.toPlayerPublicDto(playerModel), WsMessageType.PLAYER_DATA));
     }
 
-    public PlayerModel removeSeatAndRefund(SeatModel seatModel) throws GameSystemException {
+    public PlayerModel removeSeat(SeatModel seatModel) throws GameSystemException {
+        //TODO запросить возрат средств с MoneyService
         PlayerModel playerModel = getPlayerByUUIDOrThrow(seatModel.getPlayerId());
         SeatModel seatModelOfPlayer = findSeatOfPlayerOrThrow(playerModel, seatModel);
 
-        playerModel.changeBalance(seatModelOfPlayer.getCurrentBet());
         playerModel.getSeatModels().remove(seatModelOfPlayer);
 
         return playerModel;
@@ -71,7 +71,6 @@ public class PlayerService {
         BigDecimal newBet = seatModel.getCurrentBet();
 
         playerModel.getSeatModels().set(seatIndex, seatModel);
-        playerModel.changeBalance(newBet.subtract(oldBet).negate());
 
         return playerModel;
     }
