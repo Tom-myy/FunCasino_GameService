@@ -4,6 +4,12 @@ spring:
   profiles:
     active: dev  #default profile
 
+
+  #for avoiding Open-In-View warnings:
+  jpa:
+    open-in-view: false
+
+
   kafka:
     bootstrap-servers: localhost:9092
     producer:
@@ -20,11 +26,22 @@ game:
     betting-time: 120
     decision-time: 25
 
+#management:
+#  endpoints:
+#    web:
+#      exposure:
+#        include: health, info
 management:
   endpoints:
     web:
       exposure:
-        include: health, info
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
 
 jwt:
   game-secret: ${JWT_GAME_SECRET}

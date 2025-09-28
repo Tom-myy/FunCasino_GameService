@@ -1,3 +1,35 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASS}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://game-db:5432/game_db
+    user: service_migrator
+    password: gameservicedb_migrator_pass
+
+    locations: classpath:db/migration
+
+    default-schema: game_schema
+    schemas: game_schema
+    create-schemas: false
+
+# Swagger
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+
 game:
   ws-base-url: ${GAME_WS_BASE_URL}
 
